@@ -1,0 +1,52 @@
+spring:
+  application:
+    name: license-tracker-backend
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/licensetracker_db2025?createDatabaseIfNotExist=true
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+
+jwt:
+  secret: BLUEYONDERBELLANDURBENGALURUBLUEYONDERBELLANDURBENGALURUBLUEYONDERBELLANDURBENGALURUBENGALURUBLUEYONDERBELLANDURBENGALURUBENGALURUBLUEYONDERBELLANDURBENGALURU
+  expiration: 86400000
+
+server:
+  port: 8080
+
+# Swagger/OpenAPI Configuration
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+
+logging:
+  level:
+    org.springframework: INFO
+    com.prodapt: ERROR
+gemini:
+  api:
+    key: ${GEMINI_API_KEY}
+    model: gemini-2.0-flash
+
+langchain:
+  cache:
+    enabled: true
+    ttl: 3600
+
+
+
+
+
+

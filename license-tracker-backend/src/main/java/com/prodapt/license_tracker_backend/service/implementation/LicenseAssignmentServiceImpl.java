@@ -1,0 +1,496 @@
+package com.prodapt.license_tracker_backend.service.implementation;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.prodapt.license_tracker_backend.dto.AssignmentRequest;
+import com.prodapt.license_tracker_backend.dto.AssignmentResponse;
+import com.prodapt.license_tracker_backend.dto.RevokeAssignmentRequest;
+import com.prodapt.license_tracker_backend.entities.Device;
+import com.prodapt.license_tracker_backend.entities.License;
+import com.prodapt.license_tracker_backend.entities.LicenseAssignment;
+import com.prodapt.license_tracker_backend.entities.User;
+import com.prodapt.license_tracker_backend.entities.enums.AuditAction;
+import com.prodapt.license_tracker_backend.entities.enums.EntityType;
+import com.prodapt.license_tracker_backend.exception.ResourceNotFoundException;
+import com.prodapt.license_tracker_backend.exception.ValidationException;
+import com.prodapt.license_tracker_backend.repository.DeviceRepository;
+import com.prodapt.license_tracker_backend.repository.LicenseAssignmentRepository;
+import com.prodapt.license_tracker_backend.repository.LicenseRepository;
+import com.prodapt.license_tracker_backend.repository.UserRepository;
+import com.prodapt.license_tracker_backend.service.AuditLogService;
+import com.prodapt.license_tracker_backend.service.LicenseAssignmentService;
+import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class LicenseAssignmentServiceImpl implements LicenseAssignmentService {
+
+    private final LicenseAssignmentRepository assignmentRepository;
+    private final DeviceRepository deviceRepository;
+    private final LicenseRepository licenseRepository;
+    private final UserRepository userRepository;
+    private final AuditLogService auditLogService;
+    private final ObjectMapper objectMapper;
+
+    /**
+     * Helper method to get current user information including IP address
+     */
+    private Map<String, Object> getCurrentUserInfo() {
+        Map<String, Object> userInfo = new HashMap<>();
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.isAuthenticated()) {
+                String username = authentication.getName();
+                userInfo.put("username", username);
+
+                try {
+                    User user = userRepository.findByUsername(username).orElse(null);
+                    if (user != null) {
+                        userInfo.put("userId", user.getId());
+                    }
+                } catch (Exception e) {
+                    log.debug("Could not fetch user ID for username: {}", username);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Error getting current user info", e);
+        }
+
+        userInfo.putIfAbsent("username", "SYSTEM");
+        userInfo.putIfAbsent("userId", null);
+
+        // Get IP address
+        try {
+            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attributes != null) {
+                HttpServletRequest request = attributes.getRequest();
+                userInfo.put("ipAddress", getClientIpAddress(request));
+            }
+        } catch (Exception e) {
+            log.debug("Could not fetch IP address");
+        }
+
+        return userInfo;
+    }
+
+    /**
+     * Extract client IP address from request
+     */
+    private String getClientIpAddress(HttpServletRequest request) {
+        String[] headers = {
+                "X-Forwarded-For", "Proxy-Client-IP", "WL-Proxy-Client-IP",
+                "HTTP_X_FORWARDED_FOR", "HTTP_X_FORWARDED", "HTTP_X_CLUSTER_CLIENT_IP",
+                "HTTP_CLIENT_IP", "HTTP_FORWARDED_FOR", "HTTP_FORWARDED",
+                "HTTP_VIA", "REMOTE_ADDR"
+        };
+
+        for (String header : headers) {
+            String ip = request.getHeader(header);
+            if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
+                return ip.split(",")[0].trim();
+            }
+        }
+
+        return request.getRemoteAddr();
+    }
+
+    @Override
+    @Transactional
+    public AssignmentResponse assignLicenseToDevice(AssignmentRequest request) {
+        log.info("Assigning license {} to device {}", request.getLicenseId(), request.getDeviceId());
+
+        // Get current user info early for audit logging
+        Map<String, Object> userInfo = getCurrentUserInfo();
+        Long userId = (Long) userInfo.get("userId");
+        String username = (String) userInfo.get("username");
+        String ipAddress = (String) userInfo.get("ipAddress");
+
+        try {
+            // 1. Fetch and validate device
+            Device device = deviceRepository.findById(request.getDeviceId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Device not found with id: " + request.getDeviceId()));
+
+            // 2. Fetch and validate license
+            License license = licenseRepository.findById(request.getLicenseId())
+                    .orElseThrow(() -> new ResourceNotFoundException("License not found with id: " + request.getLicenseId()));
+
+            // 3. Validate license is active
+            if (!license.getActive()) {
+                logFailedAssignment(userId, username, ipAddress, device, license,
+                        "INACTIVE_LICENSE", "Cannot assign inactive license");
+                throw new ValidationException("Cannot assign inactive license");
+            }
+
+            // 4. Check if license is expired
+            if (license.getValidTo().isBefore(LocalDate.now())) {
+                logFailedAssignment(userId, username, ipAddress, device, license,
+                        "EXPIRED_LICENSE", "License expired on: " + license.getValidTo());
+                throw new ValidationException("Cannot assign expired license. Expiry date: " + license.getValidTo());
+            }
+
+            // 5. Check if license is not yet valid
+            if (license.getValidFrom().isAfter(LocalDate.now())) {
+                logFailedAssignment(userId, username, ipAddress, device, license,
+                        "NOT_YET_VALID", "License valid from: " + license.getValidFrom());
+                throw new ValidationException("License is not yet valid. Valid from: " + license.getValidFrom());
+            }
+
+            // 6. Check if already assigned
+            if (assignmentRepository.existsByDeviceIdAndLicenseIdAndActiveTrue(request.getDeviceId(), request.getLicenseId())) {
+                logFailedAssignment(userId, username, ipAddress, device, license,
+                        "ALREADY_ASSIGNED", "License already assigned to this device");
+                throw new ValidationException("This license is already assigned to this device");
+            }
+
+            // 7. Check max usage limit (CRITICAL BUSINESS RULE)
+            long currentUsage = assignmentRepository.countActiveAssignmentsByLicenseId(request.getLicenseId());
+            if (currentUsage >= license.getMaxUsage()) {
+                logFailedAssignment(userId, username, ipAddress, device, license,
+                        "CAPACITY_EXCEEDED",
+                        String.format("Usage: %d/%d", currentUsage, license.getMaxUsage()));
+                throw new ValidationException(
+                        String.format("License usage limit reached. Current usage: %d, Max allowed: %d. " +
+                                        "Please revoke an existing assignment or contact procurement to increase license capacity.",
+                                currentUsage, license.getMaxUsage())
+                );
+            }
+
+            // 8. Create assignment
+            LicenseAssignment assignment = LicenseAssignment.builder()
+                    .device(device)
+                    .license(license)
+                    .assignedBy(request.getAssignedBy() != null ? request.getAssignedBy() : username)
+                    .active(true)
+                    .build();
+
+            LicenseAssignment savedAssignment = assignmentRepository.save(assignment);
+
+            // 9. Update license current usage
+            long newUsage = currentUsage + 1;
+            license.setCurrentUsage((int) newUsage);
+            licenseRepository.save(license);
+
+            // 10. Create successful audit log
+            try {
+                Map<String, Object> auditDetails = new HashMap<>();
+                auditDetails.put("assignmentId", savedAssignment.getId());
+
+                // Device details
+                auditDetails.put("deviceId", device.getId());
+                auditDetails.put("deviceIdName", device.getDeviceId());
+                auditDetails.put("deviceType", device.getDeviceType() != null ? device.getDeviceType().name() : null);
+                auditDetails.put("deviceLocation", device.getLocation());
+                auditDetails.put("deviceRegion", device.getRegion() != null ? device.getRegion().name() : null);
+
+                // License details
+                auditDetails.put("licenseId", license.getId());
+                auditDetails.put("licenseKey", license.getLicenseKey());
+                auditDetails.put("softwareName", license.getSoftwareName());
+                auditDetails.put("licenseType", license.getLicenseType() != null ? license.getLicenseType().name() : null);
+
+                // Usage tracking
+                auditDetails.put("usageBeforeAssignment", currentUsage);
+                auditDetails.put("usageAfterAssignment", newUsage);
+                auditDetails.put("maxUsage", license.getMaxUsage());
+                auditDetails.put("utilizationPercentage", (newUsage * 100.0) / license.getMaxUsage());
+
+                // Assignment details
+                auditDetails.put("assignedBy", savedAssignment.getAssignedBy());
+                auditDetails.put("assignedOn", savedAssignment.getAssignedOn().toString());
+                auditDetails.put("ipAddress", ipAddress);
+                auditDetails.put("status", "SUCCESS");
+
+                auditLogService.log(
+                        userId,
+                        username,
+                        EntityType.ASSIGNMENT,
+                        savedAssignment.getId().toString(),
+                        AuditAction.ASSIGN,
+                        objectMapper.writeValueAsString(auditDetails)
+                );
+            } catch (Exception e) {
+                log.error("Failed to create audit log for successful assignment", e);
+            }
+
+            log.info("License assigned successfully. Assignment ID: {}, Current usage: {}/{}",
+                    savedAssignment.getId(), newUsage, license.getMaxUsage());
+
+            return mapToResponse(savedAssignment);
+
+        } catch (ResourceNotFoundException | ValidationException e) {
+            // Exception already logged in validation checks
+            throw e;
+        } catch (Exception e) {
+            // Log unexpected errors
+            try {
+                Map<String, Object> auditDetails = new HashMap<>();
+                auditDetails.put("deviceId", request.getDeviceId());
+                auditDetails.put("licenseId", request.getLicenseId());
+                auditDetails.put("failureReason", "UNEXPECTED_ERROR");
+                auditDetails.put("errorMessage", e.getMessage());
+                auditDetails.put("status", "FAILURE");
+
+                auditLogService.log(
+                        userId,
+                        username,
+                        EntityType.ASSIGNMENT,
+                        "FAILED_ASSIGNMENT",
+                        AuditAction.ASSIGN,
+                        objectMapper.writeValueAsString(auditDetails)
+                );
+            } catch (Exception auditError) {
+                log.error("Failed to create audit log for unexpected error", auditError);
+            }
+            throw e;
+        }
+    }
+
+    /**
+     * Helper method to log failed assignment attempts
+     */
+    private void logFailedAssignment(Long userId, String username, String ipAddress,
+                                     Device device, License license,
+                                     String failureReason, String errorMessage) {
+        try {
+            Map<String, Object> auditDetails = new HashMap<>();
+            auditDetails.put("deviceId", device.getId());
+            auditDetails.put("deviceIdName", device.getDeviceId());
+            auditDetails.put("licenseId", license.getId());
+            auditDetails.put("licenseKey", license.getLicenseKey());
+            auditDetails.put("softwareName", license.getSoftwareName());
+            auditDetails.put("failureReason", failureReason);
+            auditDetails.put("errorMessage", errorMessage);
+            auditDetails.put("ipAddress", ipAddress);
+            auditDetails.put("status", "FAILURE");
+            auditDetails.put("attemptedBy", username);
+
+            auditLogService.log(
+                    userId,
+                    username,
+                    EntityType.ASSIGNMENT,
+                    "FAILED_ASSIGNMENT",
+                    AuditAction.ASSIGN,
+                    objectMapper.writeValueAsString(auditDetails)
+            );
+        } catch (Exception e) {
+            log.error("Failed to create audit log for failed assignment", e);
+        }
+    }
+
+    @Override
+    @Transactional
+    public AssignmentResponse revokeAssignment(Long assignmentId, RevokeAssignmentRequest request) {
+        log.info("Revoking assignment ID: {}", assignmentId);
+
+        // Get current user info for audit logging
+        Map<String, Object> userInfo = getCurrentUserInfo();
+        Long userId = (Long) userInfo.get("userId");
+        String username = (String) userInfo.get("username");
+        String ipAddress = (String) userInfo.get("ipAddress");
+
+        // 1. Fetch assignment
+        LicenseAssignment assignment = assignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment not found with id: " + assignmentId));
+
+        // 2. Validate assignment is active
+        if (!assignment.getActive()) {
+            // Log failed revocation attempt
+            try {
+                Map<String, Object> auditDetails = new HashMap<>();
+                auditDetails.put("assignmentId", assignmentId);
+                auditDetails.put("deviceId", assignment.getDevice().getId());
+                auditDetails.put("licenseId", assignment.getLicense().getId());
+                auditDetails.put("failureReason", "ALREADY_REVOKED");
+                auditDetails.put("revokedOn", assignment.getRevokedOn() != null ? assignment.getRevokedOn().toString() : null);
+                auditDetails.put("revokedBy", assignment.getRevokedBy());
+                auditDetails.put("status", "FAILURE");
+
+                auditLogService.log(
+                        userId,
+                        username,
+                        EntityType.ASSIGNMENT,
+                        assignmentId.toString(),
+                        AuditAction.UNASSIGN,
+                        objectMapper.writeValueAsString(auditDetails)
+                );
+            } catch (Exception e) {
+                log.error("Failed to create audit log for failed revocation", e);
+            }
+
+            throw new ValidationException("Assignment is already revoked");
+        }
+
+        Device device = assignment.getDevice();
+        License license = assignment.getLicense();
+
+        // Store values before revocation for audit
+        LocalDateTime assignedOn = assignment.getAssignedOn();
+        String assignedBy = assignment.getAssignedBy();
+        long usageBeforeRevocation = assignmentRepository.countActiveAssignmentsByLicenseId(license.getId());
+
+        // 3. Mark as revoked
+        assignment.setActive(false);
+        assignment.setRevokedOn(LocalDateTime.now());
+        assignment.setRevokedBy(request.getRevokedBy() != null ? request.getRevokedBy() : username);
+        assignment.setRevocationReason(request.getRevocationReason() != null ?
+                request.getRevocationReason() : "No reason provided");
+
+        LicenseAssignment savedAssignment = assignmentRepository.save(assignment);
+
+        // 4. Update license current usage
+        long usageAfterRevocation = assignmentRepository.countActiveAssignmentsByLicenseId(license.getId());
+        license.setCurrentUsage((int) usageAfterRevocation);
+        licenseRepository.save(license);
+
+        // 5. Create audit log for successful revocation
+        try {
+            long assignmentDurationDays = java.time.temporal.ChronoUnit.DAYS.between(
+                    assignedOn.toLocalDate(),
+                    savedAssignment.getRevokedOn().toLocalDate()
+            );
+
+            Map<String, Object> auditDetails = new HashMap<>();
+            auditDetails.put("assignmentId", savedAssignment.getId());
+
+            // Device details
+            auditDetails.put("deviceId", device.getId());
+            auditDetails.put("deviceIdName", device.getDeviceId());
+            auditDetails.put("deviceType", device.getDeviceType() != null ? device.getDeviceType().name() : null);
+
+            // License details
+            auditDetails.put("licenseId", license.getId());
+            auditDetails.put("licenseKey", license.getLicenseKey());
+            auditDetails.put("softwareName", license.getSoftwareName());
+
+            // Usage tracking
+            auditDetails.put("usageBeforeRevocation", usageBeforeRevocation);
+            auditDetails.put("usageAfterRevocation", usageAfterRevocation);
+            auditDetails.put("maxUsage", license.getMaxUsage());
+            auditDetails.put("utilizationPercentage", (usageAfterRevocation * 100.0) / license.getMaxUsage());
+
+            // Revocation details
+            auditDetails.put("revokedBy", savedAssignment.getRevokedBy());
+            auditDetails.put("revokedOn", savedAssignment.getRevokedOn().toString());
+            auditDetails.put("revocationReason", savedAssignment.getRevocationReason());
+
+            // Assignment history
+            auditDetails.put("originallyAssignedBy", assignedBy);
+            auditDetails.put("originallyAssignedOn", assignedOn.toString());
+            auditDetails.put("assignmentDurationDays", assignmentDurationDays);
+
+            auditDetails.put("ipAddress", ipAddress);
+            auditDetails.put("status", "SUCCESS");
+
+            auditLogService.log(
+                    userId,
+                    username,
+                    EntityType.ASSIGNMENT,
+                    savedAssignment.getId().toString(),
+                    AuditAction.UNASSIGN,
+                    objectMapper.writeValueAsString(auditDetails)
+            );
+        } catch (Exception e) {
+            log.error("Failed to create audit log for successful revocation", e);
+        }
+
+        log.info("Assignment revoked successfully. Reason: {}, Current usage: {}/{}",
+                assignment.getRevocationReason(), usageAfterRevocation, license.getMaxUsage());
+
+        return mapToResponse(savedAssignment);
+    }
+
+    @Override
+    public List<AssignmentResponse> getActiveAssignmentsByDevice(Long deviceId) {
+        log.info("Fetching active assignments for device: {}", deviceId);
+        List<LicenseAssignment> assignments = assignmentRepository.findByDeviceIdAndActiveTrue(deviceId);
+        return assignments.stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    @Override
+    public List<AssignmentResponse> getActiveAssignmentsByLicense(Long licenseId) {
+        log.info("Fetching active assignments for license: {}", licenseId);
+        List<LicenseAssignment> assignments = assignmentRepository.findByLicenseIdAndActiveTrue(licenseId);
+        return assignments.stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    @Override
+    public List<AssignmentResponse> getAllActiveAssignments() {
+        log.info("Fetching all active assignments");
+        List<LicenseAssignment> assignments = assignmentRepository.findByActiveTrue();
+        return assignments.stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    @Override
+    public List<AssignmentResponse> getAllAssignmentsByDevice(Long deviceId) {
+        log.info("Fetching all assignments (including revoked) for device: {}", deviceId);
+        List<LicenseAssignment> assignments = assignmentRepository.findByDeviceId(deviceId);
+        return assignments.stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    @Override
+    public List<AssignmentResponse> getAllAssignmentsByLicense(Long licenseId) {
+        log.info("Fetching all assignments (including revoked) for license: {}", licenseId);
+        List<LicenseAssignment> assignments = assignmentRepository.findByLicenseId(licenseId);
+        return assignments.stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    @Override
+    public AssignmentResponse getAssignmentById(Long id) {
+        log.info("Fetching assignment: {}", id);
+        LicenseAssignment assignment = assignmentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment not found with id: " + id));
+        return mapToResponse(assignment);
+    }
+
+    /**
+     * Maps LicenseAssignment entity to AssignmentResponse DTO
+     */
+    private AssignmentResponse mapToResponse(LicenseAssignment assignment) {
+        Device device = assignment.getDevice();
+        License license = assignment.getLicense();
+
+        return AssignmentResponse.builder()
+                .id(assignment.getId())
+                // Device info
+                .deviceId(device.getId())
+                .deviceIdName(device.getDeviceId())
+                .deviceType(device.getDeviceType() != null ? device.getDeviceType().name() : null)
+                .deviceLocation(device.getLocation())
+                // License info
+                .licenseId(license.getId())
+                .licenseKey(license.getLicenseKey())
+                .softwareName(license.getSoftwareName())
+                // Assignment info
+                .assignedOn(assignment.getAssignedOn())
+                .assignedBy(assignment.getAssignedBy())
+                .revokedOn(assignment.getRevokedOn())
+                .revokedBy(assignment.getRevokedBy())
+                .revocationReason(assignment.getRevocationReason())
+                .active(assignment.getActive())
+                .build();
+    }
+}
