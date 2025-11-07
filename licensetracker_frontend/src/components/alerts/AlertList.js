@@ -28,7 +28,7 @@ const AlertList = () => {
         alertType: '',
         region: '',
         acknowledged: 'false',
-        days: '30' // NEW
+        days: '' 
     });
 
     const [showAcknowledgeModal, setShowAcknowledgeModal] = useState(false);
