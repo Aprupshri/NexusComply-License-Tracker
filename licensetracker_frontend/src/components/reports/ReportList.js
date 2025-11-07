@@ -9,13 +9,13 @@ import Sidebar from '../common/Sidebar';
 import ChangePasswordModal from '../auth/ChangePasswordModal';
 import reportService from '../../services/reportService';
 
-// --- Constants (better to move to a separate file, e.g., constants.js) ---
+
 const REGIONS = ['BANGALORE', 'CHENNAI', 'DELHI', 'MUMBAI', 'HYDERABAD', 'KOLKATA'];
 const DEVICE_TYPES = ['ROUTER', 'SWITCH', 'FIREWALL', 'LOAD_BALANCER', 'BASE_STATION'];
 const LIFECYCLES = ['ACTIVE', 'MAINTENANCE', 'OBSOLETE', 'DECOMMISSIONED'];
 const STATUSES = ['ACTIVE', 'EXPIRING_SOON', 'EXPIRED', 'NEAR_CAPACITY'];
 
-// --- Reusable Helper Component for Status Badges ---
+
 const StatusBadge = ({ status }) => {
     if (!status) {
         return <Badge bg="secondary">UNKNOWN</Badge>;
@@ -34,7 +34,7 @@ const StatusBadge = ({ status }) => {
 };
 
 
-// --- Main Report Component (Refactored) ---
+
 const ReportList = () => {
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const [reportType, setReportType] = useState('licenses');
@@ -42,8 +42,7 @@ const ReportList = () => {
     const [loading, setLoading] = useState(false);
     const [filters, setFilters] = useState({});
 
-    // --- Report Configuration Object ---
-    // This object drives the entire component, eliminating most switch cases.
+
     const reportConfigs = {
         licenses: {
             title: 'Licenses',
@@ -165,7 +164,6 @@ const ReportList = () => {
     
     const getCSVData = () => {
         if (reportData.length === 0) return [];
-        // This can be further improved, but is clearer than the switch statement
         const headers = currentConfig.columns.map(col => col.header);
         const data = reportData.map(item => {
             const row = {};
@@ -225,7 +223,7 @@ const ReportList = () => {
                             </Card.Body>
                         </Card>
 
-                        {/* Filters Card (Now a separate component) */}
+                        {/* Filters Card */}
                         {currentConfig.filters.length > 0 && (
                             <ReportFilters
                                 filters={filters}
@@ -264,7 +262,6 @@ const ReportList = () => {
 };
 
 
-// --- New Child Component for Filters ---
 const ReportFilters = ({ filters, config, onChange, onApply, onReset }) => {
     const handleFilterChange = (e) => {
         onChange({ ...filters, [e.target.name]: e.target.value });
@@ -310,7 +307,6 @@ const ReportFilters = ({ filters, config, onChange, onApply, onReset }) => {
 };
 
 
-// --- New Child Component for the Table ---
 const ReportTable = ({ columns, data }) => (
     <div className="table-responsive">
         <Table hover>

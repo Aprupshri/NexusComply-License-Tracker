@@ -5,7 +5,7 @@ import { Spinner, Container } from 'react-bootstrap';
 
 const PrivateRoute = ({ children, allowedRoles = null }) => {
     const { user, loading } = useAuth();
-
+    console.log(user)
     if (loading) {
         return (
             <Container className="d-flex justify-content-center align-items-center" style={{ minHeight: '100vh' }}>
@@ -14,15 +14,23 @@ const PrivateRoute = ({ children, allowedRoles = null }) => {
         );
     }
 
+
+
     // Check if user is authenticated
     if (!user) {
         return <Navigate to="/login" replace />;
+    }
+
+    if (allowedRoles && !allowedRoles.includes(user.role)) {
+        return <Navigate to="/vanilladashboard" replace />;
     }
 
     // Check if specific roles are required
     if (allowedRoles && !allowedRoles.includes(user.role)) {
         return <Navigate to="/dashboard" replace />;
     }
+
+  
 
     return children;
 };

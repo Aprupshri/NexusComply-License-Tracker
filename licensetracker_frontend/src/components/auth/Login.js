@@ -21,7 +21,7 @@ const Login = () => {
 
         try {
             await login(username, password);
-            navigate('/dashboard');
+            navigate('/vanilldashboard');
         } catch (err) {
             setError(err.response?.data?.message || 'Invalid username or password');
         } finally {
@@ -43,7 +43,7 @@ const Login = () => {
                             <Card.Body className="p-5">
                                 <div className="text-center mb-4">
                                     <img src={logo} className="App-logo" alt="logo" style={{ width: '50px', height: '60px' }}  /> 
-                                    <h2 className="fw-bold text-dark mt-3">Telecom License Tracker</h2>
+                                    <h2 className="fw-bold text-dark mt-3">Nexus Comply - License Tracker</h2>
                                     <p className="text-muted">Sign in to your account</p>
                                 </div>
 

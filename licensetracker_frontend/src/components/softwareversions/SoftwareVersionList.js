@@ -238,7 +238,6 @@ const SoftwareVersionList = () => {
                             </Col>
                         </Row>
 
-                        {/* Filters */}
                         <Card className="shadow-sm border-0 mb-3">
                             <Card.Header className="bg-white border-bottom">
                                 <h5 className="mb-0">
@@ -306,7 +305,6 @@ const SoftwareVersionList = () => {
                             </Card.Body>
                         </Card>
 
-                        {/* Versions Table */}
                         <Card className="shadow-sm border-0">
                             <Card.Body>
                                 {loading ? (
@@ -496,7 +494,6 @@ const SoftwareVersionList = () => {
                 </div>
             </div>
 
-            {/* Delete Confirmation Modal */}
             <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)}>
                 <Modal.Header closeButton>
                     <Modal.Title>Delete Software Version</Modal.Title>
@@ -525,7 +522,6 @@ const SoftwareVersionList = () => {
                 </Modal.Footer>
             </Modal>
 
-            {/* Password Change Modal */}
             <ChangePasswordModal
                 show={showPasswordModal}
                 onHide={() => setShowPasswordModal(false)}

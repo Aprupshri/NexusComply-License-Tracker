@@ -6,7 +6,6 @@ const alertService = {
         return response.data;
     },
 
-    // NEW: Get alerts expiring in X days
     getAlertsExpiringInDays: async (days = 30) => {
         const response = await api.get(`/alerts?days=${days}`);
         return response.data;

@@ -26,6 +26,7 @@ import UserList from './components/User/UserList';
 import UserForm from './components/User/UserForm';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
+import VanillaDashboard from './components/dashboard/VanillaDashboard';
 
 function App() {
     return (
@@ -43,7 +44,7 @@ function App() {
                     <Route path="/login" element={<Login />} />
                     <Route path="/forgot-password" element={<ForgotPassword />} />
                     <Route path="/reset-password" element={<ResetPassword />} />
-
+                    
                     <Route
                         path="/dashboard"
                         element={
@@ -53,11 +54,20 @@ function App() {
                         }
                     />
 
+                    <Route
+                        path="/vanilladashboard"
+                        element={
+                            <PrivateRoute>
+                                <VanillaDashboard />
+                            </PrivateRoute>
+                        }
+                    />
+
                     {/* Device Routes */}
                     <Route
                         path="/devices"
                         element={
-                            <PrivateRoute>
+                            <PrivateRoute allowedRoles={['ADMIN','NETWORK_ADMIN','OPERATIONS_MANAGER']}>
                                 <DeviceList />
                             </PrivateRoute>
                         }
@@ -65,7 +75,7 @@ function App() {
                     <Route
                         path="/devices/new"
                         element={
-                            <PrivateRoute>
+                            <PrivateRoute allowedRoles={['ADMIN','NETWORK_ADMIN','OPERATIONS_MANAGER']}>
                                 <DeviceForm />
                             </PrivateRoute>
                         }
@@ -73,7 +83,7 @@ function App() {
                     <Route
                         path="/devices/edit/:id"
                         element={
-                            <PrivateRoute>
+                            <PrivateRoute allowedRoles={['ADMIN','NETWORK_ADMIN','OPERATIONS_MANAGER']}>
                                 <DeviceForm />
                             </PrivateRoute>
                         }
@@ -81,7 +91,7 @@ function App() {
                     <Route
                         path="/devices/:id"
                         element={
-                            <PrivateRoute>
+                            <PrivateRoute allowedRoles={['ADMIN','NETWORK_ADMIN','OPERATIONS_MANAGER']}>
                                 <DeviceDetail />
                             </PrivateRoute>
                         }
@@ -91,7 +101,7 @@ function App() {
                     <Route
                         path="/licenses"
                         element={
-                            <PrivateRoute>
+                            <PrivateRoute allowedRoles={['ADMIN','NETWORK_ADMIN','PROCUREMENT_OFFICER']}>
                                 <LicenseList />
                             </PrivateRoute>
                         }
@@ -99,7 +109,7 @@ function App() {
                     <Route
                         path="/licenses/new"
                         element={
-                            <PrivateRoute>
+                            <PrivateRoute allowedRoles={['ADMIN','NETWORK_ADMIN','PROCUREMENT_OFFICER']}>
                                 <LicenseForm />
                             </PrivateRoute>
                         }
@@ -107,7 +117,7 @@ function App() {
                     <Route
                         path="/licenses/edit/:id"
                         element={
-                            <PrivateRoute>
+                            <PrivateRoute allowedRoles={['ADMIN','NETWORK_ADMIN','PROCUREMENT_OFFICER']}>
                                 <LicenseForm />
                             </PrivateRoute>
                         }
@@ -115,7 +125,7 @@ function App() {
                     <Route
                         path="/licenses/:id"
                         element={
-                            <PrivateRoute>
+                            <PrivateRoute allowedRoles={['ADMIN','NETWORK_ADMIN','PROCUREMENT_OFFICER']}>
                                 <LicenseDetail />
                             </PrivateRoute>
                         }
@@ -125,7 +135,7 @@ function App() {
                     <Route
                         path="/assignments"
                         element={
-                            <PrivateRoute>
+                            <PrivateRoute allowedRoles={ ['ADMIN','NETWORK_ADMIN']}>
                                 <AssignmentList />
                             </PrivateRoute>
                         }
@@ -135,7 +145,7 @@ function App() {
                     <Route
                         path="/software-versions"
                         element={
-                            <PrivateRoute>
+                            <PrivateRoute allowedRoles={["ADMIN","OPERATIONS_MANAGER","NETWORK_ENGINEER"]}>
                                 <SoftwareVersionList />
                             </PrivateRoute>
                         }
@@ -143,7 +153,7 @@ function App() {
                     <Route
                         path="/software-versions/new"
                         element={
-                            <PrivateRoute>
+                            <PrivateRoute allowedRoles={["ADMIN","OPERATIONS_MANAGER","NETWORK_ENGINEER"]}>
                                 <SoftwareVersionForm />
                             </PrivateRoute>
                         }
@@ -151,7 +161,7 @@ function App() {
                     <Route
                         path="/software-versions/edit/:id"
                         element={
-                            <PrivateRoute>
+                            <PrivateRoute allowedRoles={["ADMIN","OPERATIONS_MANAGER","NETWORK_ENGINEER"]}>
                                 <SoftwareVersionForm />
                             </PrivateRoute>
                         }
@@ -167,11 +177,10 @@ function App() {
                         }
                     />
 
-                    {/* User Routes - ADMIN ONLY */}
                     <Route
                         path="/users"
                         element={
-                            <PrivateRoute allowedRoles={['ADMIN']}>
+                            <PrivateRoute allowedRoles={['ADMIN','SECURITY_HEAD']}>
                                 <UserList />
                             </PrivateRoute>
                         }
@@ -179,7 +188,7 @@ function App() {
                     <Route
                         path="/users/new"
                         element={
-                            <PrivateRoute allowedRoles={['ADMIN']}>
+                            <PrivateRoute allowedRoles={['ADMIN','SECURITY_HEAD']}>
                                 <UserForm />
                             </PrivateRoute>
                         }
@@ -189,7 +198,7 @@ function App() {
                     <Route
                         path="/reports"
                         element={
-                            <PrivateRoute>
+                            <PrivateRoute allowedRoles={['ADMIN','COMPLIANCE_OFFICER','PROCUREMENT_OFFICER','COMPLIANCE_LEAD','PROCUREMENT_LEAD','SECURITY_HEAD']}>
                                 <ReportList />
                             </PrivateRoute>
                         }
@@ -199,7 +208,7 @@ function App() {
                     <Route
                         path="/vendors"
                         element={
-                            <PrivateRoute>
+                            <PrivateRoute allowedRoles={['ADMIN','PROCUREMENT_OFFICER','PROCURMENT_LEAD'] }>
                                 <VendorList />
                             </PrivateRoute>
                         }
@@ -231,11 +240,11 @@ function App() {
                     />
                     <Route
                         path="/ai-chat"
-                        element={<PrivateRoute><AIChat /></PrivateRoute>}
+                        element={<PrivateRoute allowedRoles={["ADMIN","COMPLIANCE_OFFICER","IT_AUDITOR","COMPLIANCE_LEAD","PROCUREMENT_LEAD","PRODUCT_OWNER"]}><AIChat /></PrivateRoute>}
                     />
 
-                    <Route path="/" element={<Navigate to="/dashboard" />} />
-                    <Route path="*" element={<Navigate to="/dashboard" />} />
+                    <Route path="/" element={<Navigate to="/vanilladashboard" />} />
+                    <Route path="*" element={<Navigate to="/vanilladashboard" />} />
                 </Routes>
             </Router>
         </AuthProvider>

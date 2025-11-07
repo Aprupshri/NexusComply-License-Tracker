@@ -75,7 +75,6 @@ const SoftwareVersionForm = () => {
             [name]: value
         });
 
-        // Auto-fill software name from device when device is selected
         if (name === 'deviceId' && value) {
             const selectedDevice = devices.find(d => d.id === parseInt(value));
             if (selectedDevice && selectedDevice.softwareName && !formData.softwareName) {
@@ -186,7 +185,6 @@ const SoftwareVersionForm = () => {
                         <Card className="shadow-sm border-0">
                             <Card.Body className="p-4">
                                 <Form onSubmit={handleSubmit}>
-                                    {/* Device Selection */}
                                     <Row>
                                         <Col md={12} className="mb-3">
                                             <Form.Group>
@@ -220,7 +218,6 @@ const SoftwareVersionForm = () => {
                                         </Col>
                                     </Row>
 
-                                    {/* Software Name & Current Version */}
                                     <Row>
                                         <Col md={6} className="mb-3">
                                             <Form.Group>
@@ -257,7 +254,6 @@ const SoftwareVersionForm = () => {
                                         </Col>
                                     </Row>
 
-                                    {/* Latest Version & Release Date */}
                                     <Row>
                                         <Col md={6} className="mb-3">
                                             <Form.Group>
@@ -331,7 +327,6 @@ const SoftwareVersionForm = () => {
                                         </Col>
                                     </Row>
 
-                                    {/* Action Buttons */}
                                     <div className="d-flex flex-column flex-sm-row justify-content-end gap-2">
                                         <Button 
                                             variant="secondary"
@@ -364,7 +359,6 @@ const SoftwareVersionForm = () => {
                             </Card.Body>
                         </Card>
 
-                        {/* Info Card */}
                         <Card className="shadow-sm border-0 mt-4">
                             <Card.Body className="bg-light">
                                 <h6 className="mb-2">

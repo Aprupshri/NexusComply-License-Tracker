@@ -33,16 +33,16 @@ const Sidebar = () => {
 
 
     const menuItems = [
-        { path: '/dashboard', icon: 'bi-speedometer2', label: 'Dashboard', roles: [] },
-        { path: '/devices', icon: 'bi-hdd-network', label: 'Devices', roles: [] },
-        { path: '/licenses', icon: 'bi-key', label: 'Licenses', roles: [] },
-        { path: '/vendors', icon: 'bi-building', label: 'Vendors', roles: [] },
-        { path: '/assignments', icon: 'bi-link-45deg', label: 'Assignments', roles: [] },
-        { path: '/software-versions', icon: 'bi-cpu', label: 'Software Versions', roles: [] },
-        { path: '/alerts', icon: 'bi-bell', label: 'Alerts', badge: alertCount, roles: ['ADMIN', 'NETWORK_ADMIN', 'PROCUREMENT_OFFICER', 'COMPLIANCE_OFFICER', 'OPERATIONS_MANAGER'] },
-        { path: '/audit-logs', icon: 'bi-journal-text', label: 'Audit Logs', roles: ['ADMIN', 'SECURITY_HEAD', 'COMPLIANCE_OFFICER', 'IT_AUDITOR'] },
-        { path: '/users', icon: 'bi-people', label: 'Users', roles: ['ADMIN'] },
-        { path: '/reports', icon: 'bi-file-earmark-bar-graph', label: 'Reports', roles: [] },
+        { path: '/dashboard', icon: 'bi-speedometer2', label: 'Dashboard', roles: ['ADMIN','COMPLIANCE_OFFICER','COMPLIANCE_LEAD','PRODUCT_OWNER'] },
+        { path: '/devices', icon: 'bi-hdd-network', label: 'Devices', roles: ['ADMIN','NETWORK_ADMIN','OPERATIONS_MANAGER'] },
+        { path: '/licenses', icon: 'bi-key', label: 'Licenses', roles: ['ADMIN','NETWORK_ADMIN','PROCUREMENT_OFFICER'] },
+        { path: '/vendors', icon: 'bi-building', label: 'Vendors', roles: ['ADMIN','PROCUREMENT_OFFICER','PROCURMENT_LEAD'] },
+        { path: '/assignments', icon: 'bi-link-45deg', label: 'Assignments', roles: ['ADMIN','NETWORK_ADMIN'] },
+        { path: '/software-versions', icon: 'bi-cpu', label: 'Software Versions', roles: ["ADMIN","OPERATIONS_MANAGER","NETWORK_ENGINEER"] },
+        { path: '/alerts', icon: 'bi-bell', label: 'Alerts', badge: alertCount, roles: ["ADMIN", 'NETWORK_ADMIN', 'PROCUREMENT_OFFICER', 'COMPLIANCE_OFFICER', 'OPERATIONS_MANAGER'] },
+        { path: '/audit-logs', icon: 'bi-journal-text', label: 'Audit Logs', roles: ['ADMIN', 'SECURITY_HEAD', 'IT_AUDITOR'] },
+        { path: '/users', icon: 'bi-people', label: 'Users', roles: ['ADMIN','SECURITY_HEAD'] },
+        { path: '/reports', icon: 'bi-file-earmark-bar-graph', label: 'Reports', roles: ['ADMIN','COMPLIANCE_OFFICER','PROCUREMENT_OFFICER','COMPLIANCE_LEAD','PROCUREMENT_LEAD','SECURITY_HEAD'] },
         // ✅ NEW: AI Assistant Menu Item
         { 
             path: '/ai-chat', 
@@ -50,7 +50,7 @@ const Sidebar = () => {
             label: 'AI Assistant', 
             badge: 0,
             isBeta: true,
-            roles: ['ADMIN', 'COMPLIANCE_OFFICER', 'PROCUREMENT_OFFICER', 'IT_AUDITOR', 'COMPLIANCE_LEAD', 'PROCUREMENT_LEAD', 'PRODUCT_OWNER', 'SECURITY_HEAD'] 
+            roles: ['ADMIN', 'COMPLIANCE_OFFICER', 'IT_AUDITOR', 'COMPLIANCE_LEAD', 'PROCUREMENT_LEAD', 'PRODUCT_OWNER'] 
         },
     ];
 
@@ -71,34 +71,6 @@ const Sidebar = () => {
 
     const SidebarContent = ({ isMobile = false }) => (
         <>
-            {/* User Info Section */}
-            {!collapsed && (
-                <div className={`p-3 border-bottom ${isMobile ? 'bg-light' : 'bg-white'}`}>
-                    <div className="d-flex align-items-center mb-2">
-                        <div
-                            className="rounded-circle bg-primary d-flex align-items-center justify-content-center me-2"
-                            style={{ width: '40px', height: '40px' }}
-                        >
-                            <i className="bi bi-person-fill text-white" style={{ fontSize: '1.5rem' }}></i>
-                        </div>
-                        <div className="flex-grow-1" style={{ minWidth: 0 }}>
-                            <div className="fw-bold text-truncate" style={{ fontSize: '0.9rem' }}>
-                                {user?.fullName || user?.username}
-                            </div>
-                            <small className="text-muted text-truncate d-block">
-                                {user?.role?.replace(/_/g, ' ')}
-                            </small>
-                        </div>
-                    </div>
-                    {user?.region && (
-                        <Badge bg="primary" className="w-100 py-2">
-                            <i className="bi bi-geo-alt me-1"></i>
-                            {user?.region}
-                        </Badge>
-                    )}
-                </div>
-            )}
-
 
             {/* Menu Items */}
             <Nav className="flex-column p-2">
