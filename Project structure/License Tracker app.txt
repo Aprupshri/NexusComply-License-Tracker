@@ -1,0 +1,304 @@
+License Tracker app
+
+-> data initializer
+package com.prodapt.license_tracker_backend;
+
+
+import com.prodapt.license_tracker_backend.entities.Device;
+import com.prodapt.license_tracker_backend.entities.License;
+import com.prodapt.license_tracker_backend.entities.User;
+import com.prodapt.license_tracker_backend.entities.Vendor;
+import com.prodapt.license_tracker_backend.entities.enums.*;
+import com.prodapt.license_tracker_backend.repository.DeviceRepository;
+import com.prodapt.license_tracker_backend.repository.LicenseRepository;
+import com.prodapt.license_tracker_backend.repository.UserRepository;
+import com.prodapt.license_tracker_backend.repository.VendorRepository;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Component;
+
+
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+import java.time.LocalDateTime;
+
+import org.springframework.context.annotation.Profile;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+
+
+@Component
+@RequiredArgsConstructor
+@Slf4j
+@Profile("!test") // Don't run during tests
+public class DataInitializer implements CommandLineRunner {
+
+    private final UserRepository userRepository;
+    private final VendorRepository vendorRepository;
+    private final DeviceRepository deviceRepository;
+    private final LicenseRepository licenseRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    @Override
+    public void run(String... args) {
+        initializeAdminUser();
+        initializeSampleUsers();
+        initializeVendors();
+        initializeDevices();
+        initializeLicenses();
+    }
+
+    private void initializeAdminUser() {
+        if (!userRepository.existsByUsername("admin")) {
+            log.info("Creating default admin user...");
+
+            User admin = User.builder()
+                    .username("admin")
+                    .email("admin@telecom.com")
+                    .password(passwordEncoder.encode("admin123"))
+                    .fullName("System Administrator")
+                    .role(UserRole.ADMIN)
+                    .region(Region.BANGALORE)
+                    .active(true)
+                    .createdAt(LocalDateTime.now())
+                    .updatedAt(LocalDateTime.now())
+                    .build();
+
+            userRepository.save(admin);
+            log.info("✅ Admin user created: admin/admin123");
+        }
+    }
+
+    private void initializeSampleUsers() {
+        if (userRepository.count() == 1) {
+            log.info("Creating sample users...");
+
+            User networkAdmin = User.builder()
+                    .username("network.admin")
+                    .email("network@telecom.com")
+                    .password(passwordEncoder.encode("password123"))
+                    .fullName("Network Administrator")
+                    .role(UserRole.NETWORK_ADMIN)
+                    .region(Region.CHENNAI)
+                    .active(true)
+                    .createdAt(LocalDateTime.now())
+                    .updatedAt(LocalDateTime.now())
+                    .build();
+
+            User engineer = User.builder()
+                    .username("engineer")
+                    .email("engineer@telecom.com")
+                    .password(passwordEncoder.encode("password123"))
+                    .fullName("Network Engineer")
+                    .role(UserRole.NETWORK_ENGINEER)
+                    .region(Region.MUMBAI)
+                    .active(true)
+                    .createdAt(LocalDateTime.now())
+                    .updatedAt(LocalDateTime.now())
+                    .build();
+
+            userRepository.save(networkAdmin);
+            userRepository.save(engineer);
+            log.info("✅ Sample users created");
+        }
+    }
+
+    private void initializeVendors() {
+        if (vendorRepository.count() == 0) {
+            log.info("Creating vendors...");
+
+            Vendor cisco = Vendor.builder()
+                    .vendorName("Cisco Systems")
+                    .contactEmail("john@cisco.com")
+                    .contactPhone("+1-408-526-4000")
+                    .build();
+
+            Vendor juniper = Vendor.builder()
+                    .vendorName("Juniper Networks")
+                    .contactEmail("jane@juniper.com")
+                    .contactPhone("+1-408-745-2000")
+                    .build();
+
+            Vendor nokia = Vendor.builder()
+                    .vendorName("Nokia")
+                    .contactEmail("mike@nokia.com")
+                    .contactPhone("+358-7-180-08000")
+                    .build();
+
+            Vendor microsoft = Vendor.builder()
+                    .vendorName("Microsoft Corporation")
+                    .contactEmail("sarah@microsoft.com")
+                    .contactPhone("+1-425-882-8080")
+                    .build();
+
+            vendorRepository.save(cisco);
+            vendorRepository.save(juniper);
+            vendorRepository.save(nokia);
+            vendorRepository.save(microsoft);
+
+            log.info("✅ Created 4 vendors");
+        }
+    }
+
+    private void initializeDevices() {
+        if (deviceRepository.count() == 0) {
+            log.info("Creating devices...");
+
+            Vendor cisco = vendorRepository.findByVendorName("Cisco Systems").orElse(null);
+            Vendor juniper = vendorRepository.findByVendorName("Juniper Networks").orElse(null);
+            Vendor nokia = vendorRepository.findByVendorName("Nokia").orElse(null);
+
+            Device router1 = Device.builder()
+                    .deviceId("RTR-BLR-001")
+                    .deviceType(DeviceType.ROUTER)
+                    .model("Cisco ASR 9000")
+                    .ipAddress("192.168.1.1")
+                    .location("Bangalore DC")
+                    .region(Region.BANGALORE)
+                    .lifecycle(DeviceLifecycle.ACTIVE)
+                    .softwareName("IOS XR")
+                    .softwareVersion("7.5.2")
+                    .purchasedDate(LocalDate.of(2023, 1, 15))
+                    .build();
+
+            Device router2 = Device.builder()
+                    .deviceId("RTR-CHN-001")
+                    .deviceType(DeviceType.ROUTER)
+                    .model("Juniper MX960")
+                    .ipAddress("192.168.2.1")
+                    .location("Chennai DC")
+                    .region(Region.CHENNAI)
+                    .lifecycle(DeviceLifecycle.ACTIVE)
+                    .softwareName("Junos OS")
+                    .softwareVersion("21.4R1")
+                    .purchasedDate(LocalDate.of(2023, 3, 20))
+                    .build();
+
+            Device switch1 = Device.builder()
+                    .deviceId("SW-DEL-001")
+                    .deviceType(DeviceType.SWITCH)
+                    .model("Cisco Catalyst 9500")
+                    .ipAddress("192.168.3.1")
+                    .location("Delhi DC")
+                    .region(Region.DELHI)
+                    .lifecycle(DeviceLifecycle.ACTIVE)
+                    .softwareName("IOS-XE")
+                    .softwareVersion("17.6.3")
+                    .purchasedDate(LocalDate.of(2023, 5, 10))
+                    .build();
+
+            Device baseStation = Device.builder()
+                    .deviceId("BS-MUM-001")
+                    .deviceType(DeviceType.LOAD_BALANCER)
+                    .model("Nokia AirScale")
+                    .ipAddress("192.168.4.1")
+                    .location("Mumbai Tower Site")
+                    .region(Region.MUMBAI)
+                    .lifecycle(DeviceLifecycle.ACTIVE)
+                    .softwareName("NetAct")
+                    .softwareVersion("22.1")
+                    .purchasedDate(LocalDate.of(2023, 7, 1))
+                    .build();
+
+            Device firewall = Device.builder()
+                    .deviceId("FW-HYD-001")
+                    .deviceType(DeviceType.FIREWALL)
+                    .model("Cisco ASA 5585-X")
+                    .ipAddress("192.168.5.1")
+                    .location("Hyderabad DC")
+                    .region(Region.HYDERABAD)
+                    .lifecycle(DeviceLifecycle.ACTIVE)
+                    .softwareName("Cisco ASA")
+                    .softwareVersion("9.18.2")
+                    .purchasedDate(LocalDate.of(2023, 8, 15))
+                    .build();
+
+            deviceRepository.save(router1);
+            deviceRepository.save(router2);
+            deviceRepository.save(switch1);
+            deviceRepository.save(baseStation);
+            deviceRepository.save(firewall);
+
+            log.info("✅ Created 5 devices");
+        }
+    }
+
+    private void initializeLicenses() {
+        if (licenseRepository.count() == 0) {
+            log.info("Creating licenses...");
+
+            Vendor cisco = vendorRepository.findByVendorName("Cisco Systems").orElse(null);
+            Vendor microsoft = vendorRepository.findByVendorName("Microsoft Corporation").orElse(null);
+
+            License license1 = License.builder()
+                    .licenseKey("CISCO-IOS-XR-2024-001")
+                    .softwareName("IOS XR Advanced")
+                    .licenseType(LicenseType.PER_USER)
+                    .maxUsage(10)
+                    .currentUsage(2)
+                    .validFrom(LocalDate.of(2024, 1, 1))
+                    .validTo(LocalDate.of(2029, 12, 31))
+                    .region(Region.BANGALORE)
+                    .vendor(cisco)
+                    .poNumber("PO-2024-001")
+                    .cost(new BigDecimal("50000.00"))
+                    .active(true)
+                    .build();
+
+            License license2 = License.builder()
+                    .licenseKey("JUNOS-ENT-2024-002")
+                    .softwareName("Junos Enterprise")
+                    .licenseType(LicenseType.ENTERPRISE)
+                    .maxUsage(5)
+                    .currentUsage(1)
+                    .validFrom(LocalDate.of(2024, 1, 1))
+                    .validTo(LocalDate.of(2025, 12, 31))
+                    .region(Region.CHENNAI)
+                    .vendor(null)
+                    .poNumber("PO-2024-002")
+                    .cost(new BigDecimal("30000.00"))
+                    .active(true)
+                    .build();
+
+            License license3 = License.builder()
+                    .licenseKey("MSFT-WIN-SRV-2024-003")
+                    .softwareName("Windows Server Datacenter")
+                    .licenseType(LicenseType.REGION)
+                    .maxUsage(50)
+                    .currentUsage(15)
+                    .validFrom(LocalDate.of(2024, 1, 1))
+                    .validTo(LocalDate.of(2025, 1, 31))
+                    .region(Region.DELHI)
+                    .vendor(microsoft)
+                    .poNumber("PO-2024-003")
+                    .cost(new BigDecimal("75000.00"))
+                    .active(true)
+                    .build();
+
+            License license4 = License.builder()
+                    .licenseKey("CISCO-SEC-2024-004")
+                    .softwareName("Cisco Security Suite")
+                    .licenseType(LicenseType.PER_DEVICE)
+                    .maxUsage(3)
+                    .currentUsage(0)
+                    .validFrom(LocalDate.of(2024, 10, 1))
+                    .validTo(LocalDate.of(2024, 12, 31))
+                    .region(Region.HYDERABAD)
+                    .vendor(cisco)
+                    .poNumber("TRIAL-2024-001")
+                    .cost(new BigDecimal("0.00"))
+                    .active(true)
+                    .build();
+
+            licenseRepository.save(license1);
+            licenseRepository.save(license2);
+            licenseRepository.save(license3);
+            licenseRepository.save(license4);
+
+            log.info("✅ Created 4 licenses");
+        }
+    }
+}

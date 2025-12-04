@@ -1,0 +1,162 @@
+now I have the login page but I think I might need a signup page to get a hashed password in my webpage
+
+license-tracker-backend/
+├── src/
+│   ├── main/
+│   │   ├── java/
+│   │   │   └── com/
+│   │   │       └── prodapt/
+│   │   │           └── license_tracker_backend/ 
+│   │   │               ├── LicenseTrackerBackendApplication.java
+│   │   │               │
+│   │   │               ├── config/
+│   │   │               │   ├── SecurityConfig.java
+│   │   │               │   └── OpenAPIConfig.java
+│   │   │               │
+│   │   │               ├── entity/
+│   │   │               │   ├── User.java
+│   │   │               │   ├── Vendor.java
+│   │   │               │   ├── Device.java
+│   │   │               │   ├── License.java
+│   │   │               │   ├── LicenseAssignment.java
+│   │   │               │   ├── Alert.java
+│   │   │               │   ├── ComplianceViolation.java
+│   │   │               │   └── AuditLog.java
+│   │   │               │
+│   │   │               ├── enums/
+│   │   │               │   ├── UserRole.java
+│   │   │               │   ├── Region.java
+│   │   │               │   ├── DeviceType.java
+│   │   │               │   ├── DeviceLifecycle.java
+│   │   │               │   ├── LicenseType.java
+│   │   │               │   ├── AlertType.java
+│   │   │               │   ├── Severity.java
+│   │   │               │   ├── ViolationType.java
+│   │   │               │   └── AuditAction.java
+│   │   │               │
+│   │   │               ├── repository/
+│   │   │               │   ├── UserRepository.java
+│   │   │               │   ├── VendorRepository.java
+│   │   │               │   ├── DeviceRepository.java
+│   │   │               │   ├── LicenseRepository.java
+│   │   │               │   ├── LicenseAssignmentRepository.java
+│   │   │               │   ├── AlertRepository.java
+│   │   │               │   ├── ComplianceViolationRepository.java
+│   │   │               │   └── AuditLogRepository.java
+│   │   │               │
+│   │   │               ├── dto/
+│   │   │               │   ├── LoginRequest.java
+│   │   │               │   ├── LoginResponse.java
+│   │   │               │   ├── SignupRequest.java
+│   │   │               │   ├── SignupResponse.java
+│   │   │               │   ├── DeviceRequest.java
+│   │   │               │   ├── DeviceResponse.java
+│   │   │               │   ├── LicenseRequest.java
+│   │   │               │   └── LicenseResponse.java
+│   │   │               │
+│   │   │               ├── service/
+│   │   │               │   ├── AuthService.java
+│   │   │               │   ├── UserService.java
+│   │   │               │   ├── DeviceService.java
+│   │   │               │   └── LicenseService.java
+│   │   │               │
+│   │   │               ├── controller/
+│   │   │               │   ├── AuthController.java
+│   │   │               │   ├── UserController.java
+│   │   │               │   ├── DeviceController.java
+│   │   │               │   └── LicenseController.java
+│   │   │               │
+│   │   │               ├── security/
+│   │   │               │   ├── JwtTokenUtil.java
+│   │   │               │   ├── JwtAuthenticationFilter.java
+│   │   │               │   ├── UserDetailsServiceImpl.java
+│   │   │               │   └── UserDetailsImpl.java
+│   │   │               │
+│   │   │               └── exception/
+│   │   │                   ├── GlobalExceptionHandler.java
+│   │   │                   ├── ResourceNotFoundException.java
+│   │   │                   └── ValidationException.java
+│   │   │
+│   │   └── resources/
+│   │       ├── application.yml
+│   │       └── static/
+│   │
+│   └── test/
+│       └── java/
+│           └── com/
+│               └── prodapt/
+│                   └── licensetracker/
+│                       └── LicenseTrackerBackendApplicationTests.java
+│
+├── target/
+├── pom.xml
+├── .gitignore
+└── README.md
+
+
+licensetracker-frontend/
+├── node_modules/
+├── public/
+│   ├── index.html
+│   └── favicon.ico
+│
+├── src/
+│   ├── components/
+│   │   ├── auth/
+│   │   │   ├── Login.jsx
+│   │   │   ├── Signup.jsx
+│   │   │   └── PrivateRoute.jsx
+│   │   │
+│   │   ├── common/
+│   │   │   ├── Navbar.jsx
+│   │   │   └── Sidebar.jsx
+│   │   │
+│   │   ├── dashboard/
+│   │   │   └── Dashboard.jsx
+│   │   │
+│   │   ├── devices/
+│   │   │   ├── DeviceList.jsx          (To be created)
+│   │   │   └── DeviceForm.jsx          (To be created)
+│   │   │
+│   │   ├── licenses/
+│   │   │   ├── LicenseList.jsx         (To be created)
+│   │   │   └── LicenseForm.jsx         (To be created)
+│   │   │
+│   │   ├── assignments/
+│   │   │   └── AssignmentForm.jsx      (To be created)
+│   │   │
+│   │   ├── alerts/
+│   │   │   └── AlertList.jsx           (To be created)
+│   │   │
+│   │   ├── compliance/
+│   │   │   └── ComplianceReport.jsx    (To be created)
+│   │   │
+│   │   ├── reports/
+│   │   │   └── ReportList.jsx          (To be created)
+│   │   │
+│   │   └── users/
+│   │       └── UserManagement.jsx       (To be created)
+│   │
+│   ├── context/
+│   │   └── AuthContext.jsx
+│   │
+│   ├── services/
+│   │   ├── api.js
+│   │   ├── authService.js
+│   │   ├── deviceService.js             (To be created)
+│   │   ├── licenseService.js            (To be created)
+│   │   └── userService.js               (To be created)
+│   │
+│   ├── utils/
+│   │   └── helpers.js                   (To be created)
+│   │
+│   ├── App.jsx
+│   ├── index.jsx
+│   └── App.css
+│
+├── .env
+├── .gitignore
+├── package.json
+├── package-lock.json
+└── README.md
+
