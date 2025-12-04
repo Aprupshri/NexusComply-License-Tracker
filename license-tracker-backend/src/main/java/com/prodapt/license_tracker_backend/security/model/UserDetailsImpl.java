@@ -18,6 +18,7 @@ public class UserDetailsImpl implements UserDetails {
     private String username;
     private String email;
     private String password;
+    private boolean isActive;
     private Collection<? extends GrantedAuthority> authorities;
 
     /**
@@ -33,6 +34,7 @@ public class UserDetailsImpl implements UserDetails {
                 user.getUsername(),
                 user.getEmail(),
                 user.getPassword(),
+                user.getActive(),
                 Collections.singletonList(authority)  // Single role as list
         );
     }
@@ -69,6 +71,6 @@ public class UserDetailsImpl implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return true;
+        return this.isActive;
     }
 }

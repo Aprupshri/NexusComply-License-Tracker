@@ -32,7 +32,6 @@ public class AuditLogController {
 
     @Operation(summary = "Get all audit logs", description = "Retrieve paginated list of all audit logs")
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'SECURITY_HEAD', 'COMPLIANCE_OFFICER', 'IT_AUDITOR')")
     public ResponseEntity<Page<AuditLogResponse>> getAllAuditLogs(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -45,7 +44,6 @@ public class AuditLogController {
 
     @Operation(summary = "Get audit log by ID", description = "Retrieve specific audit log details")
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SECURITY_HEAD', 'COMPLIANCE_OFFICER', 'IT_AUDITOR')")
     public ResponseEntity<AuditLogResponse> getAuditLogById(@PathVariable Long id) {
         AuditLogResponse log = auditLogService.getAuditLogById(id);
         return ResponseEntity.ok(log);
@@ -53,7 +51,6 @@ public class AuditLogController {
 
     @Operation(summary = "Get audit logs by user", description = "Retrieve audit logs for specific user")
     @GetMapping("/user/{userId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SECURITY_HEAD', 'COMPLIANCE_OFFICER', 'IT_AUDITOR')")
     public ResponseEntity<Page<AuditLogResponse>> getAuditLogsByUser(
             @PathVariable Long userId,
             @RequestParam(defaultValue = "0") int page,
@@ -66,7 +63,6 @@ public class AuditLogController {
 
     @Operation(summary = "Get audit logs by entity", description = "Retrieve audit logs for specific entity")
     @GetMapping("/entity/{entityType}/{entityId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SECURITY_HEAD', 'COMPLIANCE_OFFICER', 'IT_AUDITOR', 'NETWORK_ADMIN')")
     public ResponseEntity<Page<AuditLogResponse>> getAuditLogsByEntity(
             @PathVariable String entityType,
             @PathVariable String entityId,
@@ -81,7 +77,6 @@ public class AuditLogController {
 
     @Operation(summary = "Filter audit logs", description = "Filter audit logs by multiple criteria")
     @GetMapping("/filter")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SECURITY_HEAD', 'COMPLIANCE_OFFICER', 'IT_AUDITOR')")
     public ResponseEntity<Page<AuditLogResponse>> filterAuditLogs(
             @RequestParam(required = false) String entityType,
             @RequestParam(required = false) String action,
@@ -104,7 +99,6 @@ public class AuditLogController {
 
     @Operation(summary = "Search audit logs", description = "Search audit logs by keyword")
     @GetMapping("/search")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SECURITY_HEAD', 'COMPLIANCE_OFFICER', 'IT_AUDITOR')")
     public ResponseEntity<Page<AuditLogResponse>> searchAuditLogs(
             @RequestParam String searchTerm,
             @RequestParam(defaultValue = "0") int page,
@@ -120,7 +114,6 @@ public class AuditLogController {
      */
     @Operation(summary = "Search by license key", description = "Find all audit logs related to a specific license key")
     @GetMapping("/search/license-key")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SECURITY_HEAD', 'COMPLIANCE_OFFICER', 'IT_AUDITOR')")
     public ResponseEntity<Page<AuditLogResponse>> searchByLicenseKey(
             @RequestParam String licenseKey,
             @RequestParam(defaultValue = "0") int page,
@@ -137,7 +130,6 @@ public class AuditLogController {
      */
     @Operation(summary = "Search by device ID", description = "Find all audit logs related to a specific device")
     @GetMapping("/search/device-id")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SECURITY_HEAD', 'COMPLIANCE_OFFICER', 'IT_AUDITOR', 'NETWORK_ADMIN')")
     public ResponseEntity<Page<AuditLogResponse>> searchByDeviceId(
             @RequestParam String deviceId,
             @RequestParam(defaultValue = "0") int page,
@@ -152,7 +144,6 @@ public class AuditLogController {
 
     @Operation(summary = "Advanced search", description = "Search audit logs with multiple advanced filters")
     @GetMapping("/search/advanced")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SECURITY_HEAD', 'COMPLIANCE_OFFICER', 'IT_AUDITOR')")
     public ResponseEntity<Page<AuditLogResponse>> advancedSearch(
             @RequestParam(required = false) String entityType,
             @RequestParam(required = false) String action,

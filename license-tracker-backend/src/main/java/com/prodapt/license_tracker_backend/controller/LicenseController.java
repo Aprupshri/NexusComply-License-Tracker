@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/licenses")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:3000")
+//@CrossOrigin(origins = "http://localhost:3000")
 @Tag(name = "Licenses", description = "License management APIs")
 @SecurityRequirement(name = "bearerAuth")
 public class LicenseController {

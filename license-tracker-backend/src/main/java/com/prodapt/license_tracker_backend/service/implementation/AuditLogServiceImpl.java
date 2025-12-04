@@ -1,4 +1,3 @@
-// src/main/java/com/prodapt/license_tracker_backend/service/implementation/AuditLogServiceImpl.java
 package com.prodapt.license_tracker_backend.service.implementation;
 
 import com.prodapt.license_tracker_backend.dto.AuditLogResponse;
@@ -9,6 +8,7 @@ import com.prodapt.license_tracker_backend.entities.enums.EntityType;
 import com.prodapt.license_tracker_backend.exception.ResourceNotFoundException;
 import com.prodapt.license_tracker_backend.repository.AuditLogRepository;
 import com.prodapt.license_tracker_backend.service.AuditLogService;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -26,6 +26,7 @@ public class AuditLogServiceImpl implements AuditLogService {
 
     private final AuditLogRepository auditLogRepository;
 
+
     @Override
     @Async
     @Transactional
@@ -40,6 +41,7 @@ public class AuditLogServiceImpl implements AuditLogService {
                     .details(request.getDetails())
                     .ipAddress(request.getIpAddress())
                     .userAgent(request.getUserAgent())
+                    .timestamp(LocalDateTime.now())
                     .build();
 
             auditLogRepository.save(auditLog);

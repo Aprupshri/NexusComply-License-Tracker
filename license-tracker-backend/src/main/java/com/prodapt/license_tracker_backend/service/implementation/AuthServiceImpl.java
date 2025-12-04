@@ -1,6 +1,6 @@
 package com.prodapt.license_tracker_backend.service.implementation;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.prodapt.license_tracker_backend.dto.*;
 import com.prodapt.license_tracker_backend.entities.User;
@@ -9,6 +9,7 @@ import com.prodapt.license_tracker_backend.entities.enums.EntityType;
 import com.prodapt.license_tracker_backend.exception.ValidationException;
 import com.prodapt.license_tracker_backend.repository.UserRepository;
 import com.prodapt.license_tracker_backend.security.jwt.JwtTokenUtil;
+import com.prodapt.license_tracker_backend.security.model.UserDetailsImpl;
 import com.prodapt.license_tracker_backend.service.AuditLogService;
 import com.prodapt.license_tracker_backend.service.AuthService;
 import com.prodapt.license_tracker_backend.service.EmailService;
@@ -19,6 +20,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,37 +49,32 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public LoginResponse login(LoginRequest request) {
+
         log.info("Login attempt for user: {}", request.getUsername());
         Map<String, String> requestInfo = getRequestInfo();
-
         try {
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
             );
-
-            User user = userRepository.findByUsername(request.getUsername())
-                    .orElseThrow(() -> new ValidationException("User not found"));
-
-            if (!user.getActive()) {
+            UserDetailsImpl user = (UserDetailsImpl) authentication.getPrincipal();
+            if (!user.isEnabled()) {
                 logAuthFailure(user.getId(), request.getUsername(), "ACCOUNT_DEACTIVATED", "User account is deactivated", AuditAction.LOGIN, requestInfo);
                 throw new ValidationException("User account is deactivated");
             }
-
-            String token = jwtTokenUtil.generateToken(user);
-            logSuccessfulLogin(user, requestInfo);
-
+            User loggedInUser = userRepository.findByUsername(user.getUsername())
+                    .orElseThrow();
+            String token = jwtTokenUtil.generateToken(loggedInUser);
+            logSuccessfulLogin(loggedInUser, requestInfo);
             log.info("Login successful for user: {}", request.getUsername());
-
             return LoginResponse.builder()
                     .token(token)
-                    .username(user.getUsername())
-                    .email(user.getEmail())
-                    .role(user.getRole().name())
-                    .region(user.getRegion().name())
-                    .fullName(user.getFullName())
-                    .passwordChangeRequired(user.getPasswordChangeRequired())
+                    .username(loggedInUser.getUsername())
+                    .email(loggedInUser.getEmail())
+                    .role(loggedInUser.getRole().name())
+                    .region(loggedInUser.getRegion().name())
+                    .fullName(loggedInUser.getFullName())
+                    .passwordChangeRequired(loggedInUser.getPasswordChangeRequired())
                     .build();
-
         } catch (AuthenticationException e) {
             User user = userRepository.findByUsername(request.getUsername()).orElse(null);
             Long userId = user != null ? user.getId() : null;
@@ -100,7 +97,7 @@ public class AuthServiceImpl implements AuthService {
             User user = userRepository.findByEmail(request.getEmail())
                     .orElseThrow(() -> new ValidationException("No account found with this email address"));
 
-            if (!user.getActive()) {
+            if (Boolean.FALSE.equals(user.getActive())) {
                 logAuthFailure(user.getId(), user.getUsername(), "ACCOUNT_DEACTIVATED", "Cannot reset password for deactivated account", AuditAction.PASSWORD_CHANGE, requestInfo);
                 throw new ValidationException("User account is deactivated");
             }
@@ -266,6 +263,7 @@ public class AuthServiceImpl implements AuthService {
     private Map<String, String> getRequestInfo() {
         Map<String, String> requestInfo = new HashMap<>();
         try {
+
             ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
             if (attributes != null) {
                 HttpServletRequest request = attributes.getRequest();

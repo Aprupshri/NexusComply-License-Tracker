@@ -60,7 +60,6 @@ public class License {
     @Column(name = "active")
     private Boolean active = true;
 
-    // NEW FIELD: Description/Notes
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 }

@@ -40,10 +40,7 @@ public class VendorServiceImpl implements VendorService {
     private final AuditLogService auditLogService;
     private final ObjectMapper objectMapper;
 
-    /**
-     * Helper method to get current user information
-     * Returns a map with userId and username, defaults to SYSTEM if not authenticated
-     */
+
     private Map<String, Object> getCurrentUserInfo() {
         Map<String, Object> userInfo = new HashMap<>();
         try {
@@ -52,14 +49,8 @@ public class VendorServiceImpl implements VendorService {
                 String username = authentication.getName();
                 userInfo.put("username", username);
 
-                try {
-                    User user = userRepository.findByUsername(username).orElse(null);
-                    if (user != null) {
-                        userInfo.put("userId", user.getId());
-                    }
-                } catch (Exception e) {
-                    log.debug("Could not fetch user ID for username: {}", username);
-                }
+                Long userId = fetchUserIdSafely(username);
+                userInfo.put("userId", userId);
             }
         } catch (Exception e) {
             log.warn("Error getting current user info", e);
@@ -70,6 +61,19 @@ public class VendorServiceImpl implements VendorService {
 
         return userInfo;
     }
+
+    private Long fetchUserIdSafely(String username) {
+        try {
+            User user = userRepository.findByUsername(username).orElse(null);
+            if (user != null) {
+                return user.getId();
+            }
+        } catch (Exception e) {
+            log.debug("Could not fetch user ID for username: {}", username);
+        }
+        return null;
+    }
+
 
     @Override
     @Transactional
@@ -90,7 +94,6 @@ public class VendorServiceImpl implements VendorService {
 
         Vendor savedVendor = vendorRepository.save(vendor);
 
-        // Create audit log
         try {
             Map<String, Object> userInfo = getCurrentUserInfo();
             Long userId = (Long) userInfo.get("userId");
@@ -137,17 +140,14 @@ public class VendorServiceImpl implements VendorService {
         String oldContactPhone = vendor.getContactPhone();
         String oldSupportEmail = vendor.getSupportEmail();
 
-        // Check if new vendor name already exists (excluding current vendor)
         if (request.getVendorName() != null &&
                 !request.getVendorName().equals(vendor.getVendorName()) &&
                 vendorRepository.existsByVendorName(request.getVendorName())) {
             throw new ValidationException("Vendor with name '" + request.getVendorName() + "' already exists");
         }
 
-        // Track if any changes were made
         boolean hasChanges = false;
 
-        // Update fields
         if (request.getVendorName() != null && !request.getVendorName().equals(oldVendorName)) {
             vendor.setVendorName(request.getVendorName());
             hasChanges = true;
@@ -165,7 +165,6 @@ public class VendorServiceImpl implements VendorService {
             hasChanges = true;
         }
 
-        // Only save if changes were made
         if (!hasChanges) {
             log.info("No changes detected for vendor: {}", id);
             return mapToResponse(vendor);
@@ -173,12 +172,10 @@ public class VendorServiceImpl implements VendorService {
 
         Vendor updatedVendor = vendorRepository.save(vendor);
 
-        // Get current user info
         Map<String, Object> userInfo = getCurrentUserInfo();
         String username = (String) userInfo.get("username");
         Long userId = (Long) userInfo.get("userId");
 
-        // Create audit log with changes
         try {
             Map<String, Object> auditDetails = new HashMap<>();
             auditDetails.put("vendorId", updatedVendor.getId());
@@ -261,7 +258,7 @@ public class VendorServiceImpl implements VendorService {
 
         return vendorRepository.findAll().stream()
                 .map(this::mapToResponse)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Override
@@ -272,7 +269,6 @@ public class VendorServiceImpl implements VendorService {
         Vendor vendor = vendorRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Vendor not found with id: " + id));
 
-        // Check if vendor is associated with any licenses
         long associatedLicensesCount = licenseRepository.countByVendorId(id);
         if (associatedLicensesCount > 0) {
             throw new ValidationException(
@@ -282,21 +278,17 @@ public class VendorServiceImpl implements VendorService {
             );
         }
 
-        // Store vendor info for audit before deletion
         String vendorName = vendor.getVendorName();
         String contactEmail = vendor.getContactEmail();
         String contactPhone = vendor.getContactPhone();
         String supportEmail = vendor.getSupportEmail();
 
-        // Get current user info
         Map<String, Object> userInfo = getCurrentUserInfo();
         String username = (String) userInfo.get("username");
         Long userId = (Long) userInfo.get("userId");
 
-        // Delete the vendor
         vendorRepository.delete(vendor);
 
-        // Create audit log
         try {
             Map<String, Object> auditDetails = new HashMap<>();
             auditDetails.put("vendorId", id);
@@ -328,12 +320,7 @@ public class VendorServiceImpl implements VendorService {
         return vendorRepository.existsByVendorName(vendorName);
     }
 
-    /**
-     * Map vendor entity to response DTO
-     *
-     * @param vendor The vendor entity
-     * @return VendorResponse DTO
-     */
+
     private VendorResponse mapToResponse(Vendor vendor) {
         return VendorResponse.builder()
                 .id(vendor.getId())

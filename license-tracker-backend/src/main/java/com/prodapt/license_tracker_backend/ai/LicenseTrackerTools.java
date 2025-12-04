@@ -30,21 +30,6 @@ public class LicenseTrackerTools {
     private final LicenseAssignmentRepository assignmentRepository;
     private final UserRepository userRepository;
 
-    /**
-     * Get current authenticated user
-     */
-    private User getCurrentUser() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            log.error("AI Tool: User not authenticated");
-            throw new IllegalStateException("User not authenticated.");
-        }
-
-        String username = authentication.getName();
-        return userRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalStateException("User not found: " + username));
-    }
-
     @Tool("Fetches a summary of all licenses including total count, active, expiring, and expired licenses")
     public String getLicenseSummary() {
         log.info("AI Tool: Executing getLicenseSummary");
@@ -96,7 +81,7 @@ public class LicenseTrackerTools {
                         LocalDate expiryDate = l.getValidTo();
                         return expiryDate.isAfter(today) && expiryDate.isBefore(futureDate);
                     })
-                    .collect(Collectors.toList());
+                    .toList();
 
             if (expiringLicenses.isEmpty()) {
                 return String.format("Good news! No licenses are expiring in the next %d days.", days);
@@ -137,7 +122,7 @@ public class LicenseTrackerTools {
                         LocalDate expiryDate = l.getValidTo();
                         return expiryDate.isAfter(today) && expiryDate.isBefore(futureDate);
                     })
-                    .collect(Collectors.toList());
+                    .toList();
 
             if (expiringLicenses.isEmpty()) {
                 return String.format("No licenses are expiring in the next %d days, so no renewal costs are expected.", days);
@@ -153,14 +138,12 @@ public class LicenseTrackerTools {
             result.append(String.format("• Total Estimated Cost: ₹%.2f\n\n", totalCost.doubleValue()));
 
             result.append("Breakdown by Software:\n");
-            expiringLicenses.forEach(license -> {
-                result.append(String.format(
-                        "• %s: ₹%.2f (Expires: %s)\n",
-                        license.getSoftwareName(),
-                        license.getCost() != null ? license.getCost().doubleValue() : 0.0,
-                        license.getValidTo()
-                ));
-            });
+            expiringLicenses.forEach(license -> result.append(String.format(
+                    "• %s: ₹%.2f (Expires: %s)\n",
+                    license.getSoftwareName(),
+                    license.getCost() != null ? license.getCost().doubleValue() : 0.0,
+                    license.getValidTo()
+            )));
 
             return result.toString();
 
@@ -248,8 +231,11 @@ public class LicenseTrackerTools {
                     .filter(License::getActive)
                     .forEach(license -> {
                         double utilizationPct = (license.getCurrentUsage() * 100.0) / license.getMaxUsage();
-                        String status = utilizationPct >= 90 ? "⚠️ CRITICAL" :
-                                utilizationPct >= 70 ? "⚠️ WARNING" : "✅ OK";
+                        String status = switch ((int) utilizationPct / 10) {
+                            case 9, 10 -> "⚠️ CRITICAL";
+                            case 7, 8 -> "⚠️ WARNING";
+                            default -> "✅ OK";
+                        };
 
                         result.append(String.format(
                                 "• %s: %d/%d (%.1f%%) - %s\n",

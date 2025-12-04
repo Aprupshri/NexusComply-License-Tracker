@@ -71,7 +71,6 @@ public interface LicenseAssignmentRepository extends JpaRepository<LicenseAssign
 
     @Query("SELECT COUNT(la) FROM LicenseAssignment la WHERE la.device.region = :region AND la.active = true")
     long countActiveAssignmentsByRegion(@Param("region") Region region);
-
-
+    
     List<LicenseAssignment> findByDeviceAndActiveTrue(Device device);
 }

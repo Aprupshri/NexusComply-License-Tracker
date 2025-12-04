@@ -31,6 +31,8 @@ import java.util.Map;
 public class AlertController {
 
     private final AlertService alertService;
+    private static final String MESSAGE="message";
+
 
     @Operation(summary = "Get alerts expiring in X days", description = "Filter alerts by days until expiry")
     @GetMapping(params = "days")
@@ -117,7 +119,7 @@ public class AlertController {
     public ResponseEntity<Map<String, String>> acknowledgeAllAlerts(@RequestBody AcknowledgeAlertRequest request) {
         alertService.acknowledgeAllAlerts(request.getAcknowledgedBy());
         Map<String, String> response = new HashMap<>();
-        response.put("message", "All alerts acknowledged successfully");
+        response.put(MESSAGE, "All alerts acknowledged successfully");
         return ResponseEntity.ok(response);
     }
 
@@ -127,7 +129,7 @@ public class AlertController {
     public ResponseEntity<Map<String, String>> generateLicenseExpiryAlerts() {
         alertService.generateLicenseExpiryAlerts();
         Map<String, String> response = new HashMap<>();
-        response.put("message", "License expiry alerts generated successfully");
+        response.put(MESSAGE, "License expiry alerts generated successfully");
         return ResponseEntity.ok(response);
     }
 
@@ -137,7 +139,7 @@ public class AlertController {
     public ResponseEntity<Map<String, String>> generateSoftwareVersionAlerts() {
         alertService.generateSoftwareVersionAlerts();
         Map<String, String> response = new HashMap<>();
-        response.put("message", "Software version alerts generated successfully");
+        response.put(MESSAGE, "Software version alerts generated successfully");
         return ResponseEntity.ok(response);
     }
 
@@ -147,7 +149,7 @@ public class AlertController {
     public ResponseEntity<Map<String, String>> generateCapacityAlerts() {
         alertService.generateLicenseCapacityAlerts();
         Map<String, String> response = new HashMap<>();
-        response.put("message", "License capacity alerts generated successfully");
+        response.put(MESSAGE, "License capacity alerts generated successfully");
         return ResponseEntity.ok(response);
     }
 }

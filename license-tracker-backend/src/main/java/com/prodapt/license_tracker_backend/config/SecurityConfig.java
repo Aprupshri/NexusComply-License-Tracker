@@ -46,10 +46,10 @@ public class SecurityConfig {
                         ).permitAll()
 
                         // User Management - Admin only
-                        .requestMatchers("/api/users/**").hasRole("ADMIN")
+                        .requestMatchers("/api/users/**").hasAnyRole("ADMIN","SECURITY_HEAD")
 
                         // Device Management - Admin and Network Admin
-                        .requestMatchers("/api/devices/**").hasAnyRole("ADMIN", "NETWORK_ADMIN")
+                        .requestMatchers("/api/devices/**").hasAnyRole("ADMIN", "NETWORK_ADMIN","OPERATIONS_MANAGER")
 
                         // License Management - Admin and Network Admin
                         .requestMatchers("/api/licenses/**").hasAnyRole("ADMIN", "NETWORK_ADMIN","PROCUREMENT_OFFICER")
@@ -68,7 +68,9 @@ public class SecurityConfig {
                                 "ADMIN", "PROCUREMENT_OFFICER", "COMPLIANCE_OFFICER",
                                 "IT_AUDITOR", "SECURITY_HEAD", "COMPLIANCE_LEAD", "PROCUREMENT_LEAD"
                         )
-
+                        .requestMatchers("/api/audit-logs/**").hasAnyRole("ADMIN", "SECURITY_HEAD", "IT_AUDITOR")
+                        .requestMatchers("/api/ai/chat/**").hasAnyRole("ADMIN","COMPLIANCE_OFFICER","IT_AUDITOR","COMPLIANCE_LEAD","PROCUREMENT_LEAD","PRODUCT_OWNER")
+                        .requestMatchers("/api/software-versions/**").hasAnyRole("ADMIN","OPERATIONS_MANAGER","NETWORK_ENGINEER")
                         // All other requests require authentication
                         .anyRequest().authenticated()
                 )
@@ -82,7 +84,7 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
 
         // Allow specific origins
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000", "http://localhost:3001"));
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000", "http://localhost:5173"));
 
          // Allow specific methods
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));

@@ -48,5 +48,7 @@ public class SoftwareVersion {
 
     @Column(name = "release_date")
     private LocalDate releaseDate;
+
+
 }
 

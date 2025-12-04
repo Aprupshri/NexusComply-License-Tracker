@@ -27,25 +27,5 @@ public class EmailServiceImpl implements EmailService {
         log.info("Reset Link: {}", resetLink);
         log.info("Token: {}", resetToken);
         log.info("===========================================");
-
-        // TODO: Implement actual email sending
-        /*
-        Example with Spring Mail:
-
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(toEmail);
-        message.setSubject("Password Reset Request - License Tracker");
-        message.setText(String.format(
-            "Hello %s,\n\n" +
-            "You requested to reset your password.\n\n" +
-            "Click the link below to reset your password:\n%s\n\n" +
-            "This link will expire in 1 hour.\n\n" +
-            "If you didn't request this, please ignore this email.\n\n" +
-            "Best regards,\n" +
-            "License Tracker Team",
-            username, resetLink
-        ));
-        mailSender.send(message);
-        */
     }
 }

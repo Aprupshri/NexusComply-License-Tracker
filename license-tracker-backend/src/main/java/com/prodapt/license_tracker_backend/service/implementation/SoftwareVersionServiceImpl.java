@@ -52,14 +52,9 @@ public class SoftwareVersionServiceImpl implements SoftwareVersionService {
                 String username = authentication.getName();
                 userInfo.put("username", username);
 
-                try {
-                    User user = userRepository.findByUsername(username).orElse(null);
-                    if (user != null) {
-                        userInfo.put("userId", user.getId());
-                    }
-                } catch (Exception e) {
-                    log.debug("Could not fetch user ID for username: {}", username);
-                }
+                // Extract nested try-catch into separate method
+                Long userId = fetchUserIdSafely(username);
+                userInfo.put("userId", userId);
             }
         } catch (Exception e) {
             log.warn("Error getting current user info", e);
@@ -70,6 +65,20 @@ public class SoftwareVersionServiceImpl implements SoftwareVersionService {
 
         return userInfo;
     }
+
+    // Extracted method: Fetch user ID safely without nested try-catch
+    private Long fetchUserIdSafely(String username) {
+        try {
+            User user = userRepository.findByUsername(username).orElse(null);
+            if (user != null) {
+                return user.getId();
+            }
+        } catch (Exception e) {
+            log.debug("Could not fetch user ID for username: {}", username);
+        }
+        return null;
+    }
+
 
     @Override
     @Transactional
@@ -312,7 +321,7 @@ public class SoftwareVersionServiceImpl implements SoftwareVersionService {
         List<SoftwareVersion> versions = softwareVersionRepository.findByDeviceId(deviceId);
         return versions.stream()
                 .map(this::mapToResponse)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Override

@@ -55,14 +55,8 @@ public class AlertServiceImpl implements AlertService {
                 String username = authentication.getName();
                 userInfo.put("username", username);
 
-                try {
-                    User user = userRepository.findByUsername(username).orElse(null);
-                    if (user != null) {
-                        userInfo.put("userId", user.getId());
-                    }
-                } catch (Exception e) {
-                    log.debug("Could not fetch user ID for username: {}", username);
-                }
+                Long userId = fetchUserId(username);
+                userInfo.put("userId", userId);
             }
         } catch (Exception e) {
             log.warn("Error getting current user info", e);
@@ -72,6 +66,19 @@ public class AlertServiceImpl implements AlertService {
         userInfo.putIfAbsent("userId", null);
 
         return userInfo;
+    }
+
+    // Extracted method: Fetch user ID by username
+    private Long fetchUserId(String username) {
+        try {
+            User user = userRepository.findByUsername(username).orElse(null);
+            if (user != null) {
+                return user.getId();
+            }
+        } catch (Exception e) {
+            log.debug("Could not fetch user ID for username: {}", username);
+        }
+        return null;
     }
 
     @Override
@@ -91,25 +98,25 @@ public class AlertServiceImpl implements AlertService {
         List<Alert> alerts = alertRepository.findRecentUnacknowledged(
                 LocalDateTime.now().minusDays(90)
         );
-        return alerts.stream().map(this::mapToResponse).collect(Collectors.toList());
+        return alerts.stream().map(this::mapToResponse).toList();
     }
 
     @Override
     public List<AlertResponse> getAlertsBySeverity(Severity severity) {
         List<Alert> alerts = alertRepository.findByAcknowledgedAndSeverityOrderByGeneratedAtDesc(false, severity);
-        return alerts.stream().map(this::mapToResponse).collect(Collectors.toList());
+        return alerts.stream().map(this::mapToResponse).toList();
     }
 
     @Override
     public List<AlertResponse> getAlertsByType(AlertType alertType) {
         List<Alert> alerts = alertRepository.findByAcknowledgedAndAlertTypeOrderByGeneratedAtDesc(false, alertType);
-        return alerts.stream().map(this::mapToResponse).collect(Collectors.toList());
+        return alerts.stream().map(this::mapToResponse).toList();
     }
 
     @Override
     public List<AlertResponse> getAlertsByRegion(Region region) {
         List<Alert> alerts = alertRepository.findByRegionAndAcknowledgedOrderByGeneratedAtDesc(region, false);
-        return alerts.stream().map(this::mapToResponse).collect(Collectors.toList());
+        return alerts.stream().map(this::mapToResponse).toList();
     }
 
     @Override
@@ -416,7 +423,7 @@ public class AlertServiceImpl implements AlertService {
             } else {
                 alerts.addAll(existingAlerts.stream()
                         .filter(a -> !a.getAcknowledged())
-                        .collect(Collectors.toList()));
+                        .toList());
             }
         }
 
@@ -449,7 +456,7 @@ public class AlertServiceImpl implements AlertService {
 
         return alerts.stream()
                 .map(this::mapToResponse)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Override
@@ -459,104 +466,101 @@ public class AlertServiceImpl implements AlertService {
         log.info("🔍 Running scheduled license capacity check...");
 
         List<License> licenses = licenseRepository.findAll();
-        int alertsGenerated = 0;
         List<String> generatedAlertIds = new ArrayList<>();
 
         for (License license : licenses) {
-            if (license.getMaxUsage() > 0) {
-                double usagePercentage = (license.getCurrentUsage() * 100.0) / license.getMaxUsage();
-
-                if (usagePercentage >= 90) {
-                    String alertKeyword = license.getLicenseKey();
-                    List<Alert> existingAlerts = alertRepository.findByAlertTypeAndMessageContaining(
-                            AlertType.LICENSE_CAPACITY_CRITICAL,
-                            alertKeyword
-                    );
-
-                    boolean hasUnacknowledgedAlert = existingAlerts.stream()
-                            .anyMatch(a -> !a.getAcknowledged() &&
-                                    a.getGeneratedAt().isAfter(LocalDateTime.now().minusDays(7)));
-
-                    if (!hasUnacknowledgedAlert) {
-                        String message = String.format(
-                                "License %s (%s) capacity at %.0f%% (%d/%d). Immediate action required!",
-                                license.getLicenseKey(),
-                                license.getSoftwareName(),
-                                usagePercentage,
-                                license.getCurrentUsage(),
-                                license.getMaxUsage()
-                        );
-
-                        Alert alert = Alert.builder()
-                                .alertType(AlertType.LICENSE_CAPACITY_CRITICAL)
-                                .severity(Severity.CRITICAL)
-                                .message(message)
-                                .region(license.getRegion())
-                                .acknowledged(false)
-                                .build();
-
-                        Alert savedAlert = alertRepository.save(alert);
-                        alertsGenerated++;
-                        generatedAlertIds.add(savedAlert.getId().toString());
-                    }
-                } else if (usagePercentage >= 80) {
-                    String alertKeyword = license.getLicenseKey();
-                    List<Alert> existingAlerts = alertRepository.findByAlertTypeAndMessageContaining(
-                            AlertType.LICENSE_CAPACITY_WARNING,
-                            alertKeyword
-                    );
-
-                    boolean hasUnacknowledgedAlert = existingAlerts.stream()
-                            .anyMatch(a -> !a.getAcknowledged() &&
-                                    a.getGeneratedAt().isAfter(LocalDateTime.now().minusDays(7)));
-
-                    if (!hasUnacknowledgedAlert) {
-                        String message = String.format(
-                                "License %s (%s) capacity at %.0f%% (%d/%d). Consider purchasing additional licenses.",
-                                license.getLicenseKey(),
-                                license.getSoftwareName(),
-                                usagePercentage,
-                                license.getCurrentUsage(),
-                                license.getMaxUsage()
-                        );
-
-                        Alert alert = Alert.builder()
-                                .alertType(AlertType.LICENSE_CAPACITY_WARNING)
-                                .severity(Severity.HIGH)
-                                .message(message)
-                                .region(license.getRegion())
-                                .acknowledged(false)
-                                .build();
-
-                        Alert savedAlert = alertRepository.save(alert);
-                        alertsGenerated++;
-                        generatedAlertIds.add(savedAlert.getId().toString());
-                    }
-                }
-            }
+            processLicenseAlert(license, generatedAlertIds);
         }
 
-        // Create audit log for scheduled check
+        logAuditDetails(licenses.size(), generatedAlertIds);
+        log.info("✅ License capacity check completed. Generated {} new alerts", generatedAlertIds.size());
+    }
+
+    // Extracted method: Process individual license alert
+    private void processLicenseAlert(License license, List<String> generatedAlertIds) {
+        if (license.getMaxUsage() <= 0) {
+            return;
+        }
+
+        double usagePercentage = calculateUsagePercentage(license);
+
+        if (usagePercentage >= 90) {
+            processCapacityAlert(license, usagePercentage, AlertType.LICENSE_CAPACITY_CRITICAL,
+                    Severity.CRITICAL, generatedAlertIds, 7);
+        } else if (usagePercentage >= 80) {
+            processCapacityAlert(license, usagePercentage, AlertType.LICENSE_CAPACITY_WARNING,
+                    Severity.HIGH, generatedAlertIds, 7);
+        }
+    }
+
+    // Extracted method: Calculate usage percentage
+    private double calculateUsagePercentage(License license) {
+        return (license.getCurrentUsage() * 100.0) / license.getMaxUsage();
+    }
+
+    // Extracted method: Process capacity alert with threshold
+    private void processCapacityAlert(License license, double usagePercentage,
+                                      AlertType alertType, Severity severity,
+                                      List<String> generatedAlertIds, int daysThreshold) {
+        String alertKeyword = license.getLicenseKey();
+        List<Alert> existingAlerts = alertRepository.findByAlertTypeAndMessageContaining(alertType, alertKeyword);
+
+        if (!hasUnacknowledgedAlert(existingAlerts, daysThreshold)) {
+            String message = formatAlertMessage(license, usagePercentage, alertType);
+            Alert alert = createAlert(alertType, severity, message, license);
+
+            Alert savedAlert = alertRepository.save(alert);
+            generatedAlertIds.add(savedAlert.getId().toString());
+        }
+    }
+
+    // Extracted method: Check for unacknowledged alerts
+    private boolean hasUnacknowledgedAlert(List<Alert> alerts, int daysThreshold) {
+        return alerts.stream()
+                .anyMatch(a -> !a.getAcknowledged() &&
+                        a.getGeneratedAt().isAfter(LocalDateTime.now().minusDays(daysThreshold)));
+    }
+
+    // Extracted method: Format alert message based on type
+    private String formatAlertMessage(License license, double usagePercentage, AlertType alertType) {
+        String baseMessage = String.format(
+                "License %s (%s) capacity at %.0f%% (%d/%d).",
+                license.getLicenseKey(),
+                license.getSoftwareName(),
+                usagePercentage,
+                license.getCurrentUsage(),
+                license.getMaxUsage()
+        );
+
+        if (alertType == AlertType.LICENSE_CAPACITY_CRITICAL) {
+            return baseMessage + " Immediate action required!";
+        }
+        return baseMessage + " Consider purchasing additional licenses.";
+    }
+
+    // Extracted method: Create alert entity
+    private Alert createAlert(AlertType alertType, Severity severity, String message, License license) {
+        return Alert.builder()
+                .alertType(alertType)
+                .severity(severity)
+                .message(message)
+                .region(license.getRegion())
+                .acknowledged(false)
+                .build();
+    }
+
+    // Extracted method: Log audit details
+    private void logAuditDetails(int licensesChecked, List<String> generatedAlertIds) {
         try {
             Map<String, Object> auditDetails = new HashMap<>();
             auditDetails.put("checkType", "LICENSE_CAPACITY_SCHEDULED");
             auditDetails.put("checkDate", LocalDate.now().toString());
-            auditDetails.put("licensesChecked", licenses.size());
-            auditDetails.put("alertsGenerated", alertsGenerated);
+            auditDetails.put("licensesChecked", licensesChecked);
+            auditDetails.put("alertsGenerated", generatedAlertIds.size());
             auditDetails.put("generatedAlertIds", generatedAlertIds);
 
-            // Include capacity statistics
-            long criticalCapacity = licenses.stream()
-                    .filter(l -> l.getMaxUsage() > 0 && (l.getCurrentUsage() * 100.0 / l.getMaxUsage()) >= 90)
-                    .count();
-            long warningCapacity = licenses.stream()
-                    .filter(l -> l.getMaxUsage() > 0 &&
-                            (l.getCurrentUsage() * 100.0 / l.getMaxUsage()) >= 80 &&
-                            (l.getCurrentUsage() * 100.0 / l.getMaxUsage()) < 90)
-                    .count();
-
-            auditDetails.put("criticalCapacityCount", criticalCapacity);
-            auditDetails.put("warningCapacityCount", warningCapacity);
+            List<License> allLicenses = licenseRepository.findAll();
+            addCapacityStatistics(auditDetails, allLicenses);
 
             auditLogService.log(
                     null,
@@ -569,8 +573,23 @@ public class AlertServiceImpl implements AlertService {
         } catch (Exception e) {
             log.error("Failed to create audit log for scheduled license capacity check", e);
         }
+    }
 
-        log.info("✅ License capacity check completed. Generated {} new alerts", alertsGenerated);
+    // Extracted method: Add capacity statistics to audit
+    private void addCapacityStatistics(Map<String, Object> auditDetails, List<License> licenses) {
+        long criticalCapacity = licenses.stream()
+                .filter(l -> calculateUsagePercentage(l) >= 90)
+                .count();
+
+        long warningCapacity = licenses.stream()
+                .filter(l -> {
+                    double usage = calculateUsagePercentage(l);
+                    return usage >= 80 && usage < 90;
+                })
+                .count();
+
+        auditDetails.put("criticalCapacityCount", criticalCapacity);
+        auditDetails.put("warningCapacityCount", warningCapacity);
     }
 
     private Severity determineSeverity(long daysUntilExpiry) {
@@ -644,17 +663,12 @@ public class AlertServiceImpl implements AlertService {
     }
 
     private String getColorForSeverity(Severity severity) {
-        switch (severity) {
-            case CRITICAL:
-                return "danger";
-            case HIGH:
-                return "warning";
-            case MEDIUM:
-                return "info";
-            case LOW:
-                return "secondary";
-            default:
-                return "secondary";
-        }
+        return switch (severity) {
+            case CRITICAL -> "danger";
+            case HIGH -> "warning";
+            case MEDIUM -> "info";
+            case LOW -> "secondary";
+            default -> "secondary";
+        };
     }
 }

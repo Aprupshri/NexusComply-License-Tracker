@@ -5,6 +5,7 @@ import com.prodapt.license_tracker_backend.entities.License;
 import com.prodapt.license_tracker_backend.entities.LicenseAssignment;
 import com.prodapt.license_tracker_backend.repository.LicenseAssignmentRepository;
 import com.prodapt.license_tracker_backend.repository.LicenseRepository;
+import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -22,6 +23,7 @@ public class LicenseExpiryScheduler {
 
     private final LicenseRepository licenseRepository;
     private final LicenseAssignmentRepository assignmentRepository;
+
 
     /**
      * Runs every day at 1:00 AM to check for expired licenses
@@ -97,6 +99,8 @@ public class LicenseExpiryScheduler {
      */
     @Transactional
     public void checkExpiredLicensesManually() {
+
+
         log.info("Manual license expiry check triggered");
         checkExpiredLicenses();
     }

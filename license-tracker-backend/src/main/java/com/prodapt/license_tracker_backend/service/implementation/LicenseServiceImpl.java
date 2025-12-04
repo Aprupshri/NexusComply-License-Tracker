@@ -27,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -48,14 +49,8 @@ public class LicenseServiceImpl implements LicenseService {
                 String username = authentication.getName();
                 userInfo.put("username", username);
 
-                try {
-                    User user = userRepository.findByUsername(username).orElse(null);
-                    if (user != null) {
-                        userInfo.put("userId", user.getId());
-                    }
-                } catch (Exception e) {
-                    log.debug("Could not fetch user ID for username: {}", username);
-                }
+                Long userId = fetchUserId(username);
+                userInfo.put("userId", userId);
             }
         } catch (Exception e) {
             log.warn("Error getting current user info", e);
@@ -66,6 +61,20 @@ public class LicenseServiceImpl implements LicenseService {
 
         return userInfo;
     }
+
+    // Extracted method: Fetch user ID from repository
+    private Long fetchUserId(String username) {
+        try {
+            User user = userRepository.findByUsername(username).orElse(null);
+            if (user != null) {
+                return user.getId();
+            }
+        } catch (Exception e) {
+            log.debug("Could not fetch user ID for username: {}", username);
+        }
+        return null;
+    }
+
 
     @Override
     @Transactional
@@ -141,6 +150,7 @@ public class LicenseServiceImpl implements LicenseService {
         return mapToResponse(savedLicense);
     }
 
+
     @Override
     @Transactional
     public LicenseResponse updateLicense(Long id, LicenseRequest request) {
@@ -149,20 +159,40 @@ public class LicenseServiceImpl implements LicenseService {
         License license = licenseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("License not found with id: " + id));
 
-        // Store old values for audit
-        String oldSoftwareName = license.getSoftwareName();
-        String oldLicenseType = license.getLicenseType() != null ? license.getLicenseType().name() : null;
-        Integer oldMaxUsage = license.getMaxUsage();
-        String oldValidFrom = license.getValidFrom() != null ? license.getValidFrom().toString() : null;
-        String oldValidTo = license.getValidTo() != null ? license.getValidTo().toString() : null;
-        String oldRegion = license.getRegion() != null ? license.getRegion().name() : null;
-        String oldPoNumber = license.getPoNumber();
-        String oldCost = license.getCost() != null ? license.getCost().toString() : null;
-        String oldDescription = license.getDescription();
-        Long oldVendorId = license.getVendor() != null ? license.getVendor().getId() : null;
-        String oldVendorName = license.getVendor() != null ? license.getVendor().getVendorName() : null;
+        // Capture old values before update
+        Map<String, Object> oldValues = captureOldValues(license);
 
-        // Update license fields
+        // Update license
+        updateLicenseFields(license, request);
+        License updatedLicense = licenseRepository.save(license);
+
+        // Get user info and create audit log
+        Map<String, Object> userInfo = getCurrentUserInfo();
+        createLicenseUpdateAuditLog(updatedLicense, oldValues, request, userInfo);
+
+        log.info("License updated successfully: {}", updatedLicense.getLicenseKey());
+        return mapToResponse(updatedLicense);
+    }
+
+    // Extracted method: Capture old values before update
+    private Map<String, Object> captureOldValues(License license) {
+        Map<String, Object> oldValues = new HashMap<>();
+        oldValues.put("softwareName", license.getSoftwareName());
+        oldValues.put("licenseType", license.getLicenseType() != null ? license.getLicenseType().name() : null);
+        oldValues.put("maxUsage", license.getMaxUsage());
+        oldValues.put("validFrom", license.getValidFrom() != null ? license.getValidFrom().toString() : null);
+        oldValues.put("validTo", license.getValidTo() != null ? license.getValidTo().toString() : null);
+        oldValues.put("region", license.getRegion() != null ? license.getRegion().name() : null);
+        oldValues.put("poNumber", license.getPoNumber());
+        oldValues.put("cost", license.getCost() != null ? license.getCost().toString() : null);
+        oldValues.put("description", license.getDescription());
+        oldValues.put("vendorId", license.getVendor() != null ? license.getVendor().getId() : null);
+        oldValues.put("vendorName", license.getVendor() != null ? license.getVendor().getVendorName() : null);
+        return oldValues;
+    }
+
+    // Extracted method: Update license fields
+    private void updateLicenseFields(License license, LicenseRequest request) {
         license.setSoftwareName(request.getSoftwareName());
         license.setLicenseType(request.getLicenseType());
         license.setMaxUsage(request.getMaxUsage());
@@ -180,72 +210,22 @@ public class LicenseServiceImpl implements LicenseService {
         } else {
             license.setVendor(null);
         }
+    }
 
-        License updatedLicense = licenseRepository.save(license);
-
-        // Get current user info
-        Map<String, Object> userInfo = getCurrentUserInfo();
-        String username = (String) userInfo.get("username");
-        Long userId = (Long) userInfo.get("userId");
-
-        // Create audit log with changes
+    // Extracted method: Create audit log
+    private void createLicenseUpdateAuditLog(License updatedLicense, Map<String, Object> oldValues,
+                                             LicenseRequest request, Map<String, Object> userInfo) {
         try {
             Map<String, Object> auditDetails = new HashMap<>();
             auditDetails.put("licenseKey", updatedLicense.getLicenseKey());
             auditDetails.put("licenseId", updatedLicense.getId());
 
-            // Track changes
-            Map<String, Map<String, Object>> changes = new HashMap<>();
-
-            if (!oldSoftwareName.equals(request.getSoftwareName())) {
-                changes.put("softwareName", Map.of("old", oldSoftwareName, "new", request.getSoftwareName()));
-            }
-            if (!oldLicenseType.equals(request.getLicenseType().name())) {
-                changes.put("licenseType", Map.of("old", oldLicenseType, "new", request.getLicenseType().name()));
-            }
-            if (!oldMaxUsage.equals(request.getMaxUsage())) {
-                changes.put("maxUsage", Map.of("old", oldMaxUsage, "new", request.getMaxUsage()));
-            }
-            if ((oldValidFrom == null && request.getValidFrom() != null) ||
-                    (oldValidFrom != null && !oldValidFrom.equals(request.getValidFrom().toString()))) {
-                changes.put("validFrom", Map.of("old", oldValidFrom, "new", request.getValidFrom().toString()));
-            }
-            if ((oldValidTo == null && request.getValidTo() != null) ||
-                    (oldValidTo != null && !oldValidTo.equals(request.getValidTo().toString()))) {
-                changes.put("validTo", Map.of("old", oldValidTo, "new", request.getValidTo().toString()));
-            }
-            if (!oldRegion.equals(request.getRegion().name())) {
-                changes.put("region", Map.of("old", oldRegion, "new", request.getRegion().name()));
-            }
-            if ((oldPoNumber == null && request.getPoNumber() != null) ||
-                    (oldPoNumber != null && !oldPoNumber.equals(request.getPoNumber()))) {
-                changes.put("poNumber", Map.of("old", oldPoNumber, "new", request.getPoNumber()));
-            }
-            String newCost = request.getCost() != null ? request.getCost().toString() : null;
-            if ((oldCost == null && newCost != null) ||
-                    (oldCost != null && !oldCost.equals(newCost))) {
-                changes.put("cost", Map.of("old", oldCost, "new", newCost));
-            }
-            if ((oldDescription == null && request.getDescription() != null) ||
-                    (oldDescription != null && !oldDescription.equals(request.getDescription()))) {
-                changes.put("description", Map.of(
-                        "old", oldDescription != null ? oldDescription : "null",
-                        "new", request.getDescription() != null ? request.getDescription() : "null"
-                ));
-            }
-            if ((oldVendorId == null && request.getVendorId() != null) ||
-                    (oldVendorId != null && !oldVendorId.equals(request.getVendorId()))) {
-                String newVendorName = updatedLicense.getVendor() != null ? updatedLicense.getVendor().getVendorName() : null;
-                changes.put("vendor", Map.of(
-                        "oldVendorId", oldVendorId != null ? oldVendorId : "null",
-                        "oldVendorName", oldVendorName != null ? oldVendorName : "null",
-                        "newVendorId", request.getVendorId() != null ? request.getVendorId() : "null",
-                        "newVendorName", newVendorName != null ? newVendorName : "null"
-                ));
-            }
-
+            Map<String, Map<String, Object>> changes = trackChanges(oldValues, request, updatedLicense);
             auditDetails.put("changes", changes);
             auditDetails.put("changeCount", changes.size());
+
+            String username = (String) userInfo.get("username");
+            Long userId = (Long) userInfo.get("userId");
 
             auditLogService.log(
                     userId,
@@ -258,10 +238,72 @@ public class LicenseServiceImpl implements LicenseService {
         } catch (Exception e) {
             log.error("Failed to create audit log for license update", e);
         }
+    }
 
-        log.info("License updated successfully: {}", updatedLicense.getLicenseKey());
+    // Extracted method: Track all changes
+    private Map<String, Map<String, Object>> trackChanges(Map<String, Object> oldValues,
+                                                          LicenseRequest request, License updatedLicense) {
+        Map<String, Map<String, Object>> changes = new HashMap<>();
 
-        return mapToResponse(updatedLicense);
+        trackSimpleChange(changes, "softwareName", oldValues.get("softwareName"), request.getSoftwareName());
+        trackSimpleChange(changes, "licenseType", oldValues.get("licenseType"), request.getLicenseType().name());
+        trackSimpleChange(changes, "maxUsage", oldValues.get("maxUsage"), request.getMaxUsage());
+        trackDateChange(changes, "validFrom", (String) oldValues.get("validFrom"),
+                request.getValidFrom() != null ? request.getValidFrom().toString() : null);
+        trackDateChange(changes, "validTo", (String) oldValues.get("validTo"),
+                request.getValidTo() != null ? request.getValidTo().toString() : null);
+        trackSimpleChange(changes, "region", oldValues.get("region"), request.getRegion().name());
+        trackNullableChange(changes, "poNumber", oldValues.get("poNumber"), request.getPoNumber());
+        trackNullableChange(changes, "cost", oldValues.get("cost"),
+                request.getCost() != null ? request.getCost().toString() : null);
+        trackNullableChange(changes, "description", oldValues.get("description"), request.getDescription());
+        trackVendorChange(changes, oldValues, request.getVendorId(), updatedLicense.getVendor());
+
+        return changes;
+    }
+
+    // Extracted method: Track simple change
+    private void trackSimpleChange(Map<String, Map<String, Object>> changes, String fieldName,
+                                   Object oldValue, Object newValue) {
+        if (!Objects.equals(oldValue, newValue)) {
+            changes.put(fieldName, Map.of("old", oldValue, "new", newValue));
+        }
+    }
+
+    // Extracted method: Track nullable change
+    private void trackNullableChange(Map<String, Map<String, Object>> changes, String fieldName,
+                                     Object oldValue, Object newValue) {
+        if ((oldValue == null && newValue != null) ||
+                (oldValue != null && !oldValue.equals(newValue))) {
+            changes.put(fieldName, Map.of("old", oldValue != null ? oldValue : "null",
+                    "new", newValue != null ? newValue : "null"));
+        }
+    }
+
+    // Extracted method: Track date change
+    private void trackDateChange(Map<String, Map<String, Object>> changes, String fieldName,
+                                 String oldValue, String newValue) {
+        if ((oldValue == null && newValue != null) ||
+                (oldValue != null && !oldValue.equals(newValue))) {
+            changes.put(fieldName, Map.of("old", oldValue, "new", newValue));
+        }
+    }
+
+    // Extracted method: Track vendor change
+    private void trackVendorChange(Map<String, Map<String, Object>> changes, Map<String, Object> oldValues,
+                                   Long newVendorId, Vendor newVendor) {
+        Long oldVendorId = (Long) oldValues.get("vendorId");
+        String oldVendorName = (String) oldValues.get("vendorName");
+
+        if (!Objects.equals(oldVendorId, newVendorId)) {
+            String newVendorName = newVendor != null ? newVendor.getVendorName() : null;
+            changes.put("vendor", Map.of(
+                    "oldVendorId", oldVendorId != null ? oldVendorId : "null",
+                    "oldVendorName", oldVendorName != null ? oldVendorName : "null",
+                    "newVendorId", newVendorId != null ? newVendorId : "null",
+                    "newVendorName", newVendorName != null ? newVendorName : "null"
+            ));
+        }
     }
 
     @Override
